@@ -6,7 +6,7 @@
   <Folder Name="/ソリューション項目/">
     <File Path=".editorconfig" />
   </Folder>
-  <Project Path="CG2.vcxproj">
+  <Project Path="CG2.vcxproj" Id="987f54ef-5315-4f27-add0-8290ebd3aebb">
     <Build Solution="*|x86" Project="false" />
   </Project>
 </Solution>
