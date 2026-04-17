@@ -1,5 +1,6 @@
 ﻿#include <Windows.h>
 #include <cstdint>
+#include <string>
 
 //int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 //{
@@ -23,6 +24,13 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
 	// 標準のメッセージ処理を行う
 	return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+// デバッグ出力用の関数
+void Log(const std::string& message){
+	// メッセージに改行が勝手に付いて出力されるようにした
+	std::string formatted = message + "\n";
+	OutputDebugStringA(message.c_str());
 }
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
@@ -85,6 +93,13 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		else
 		{
 			// ゲーム処理
+
+			// 書いたけど背景が真っ白だから見えねぇ↓
+			//std::string str0{ "STRING!!" };
+			//std::string str1{ std::to_string(10) };
+
+			// 起動中にVANANAと無限に出力されるようにした
+			Log("VANANA");
 		}
 	}
 
