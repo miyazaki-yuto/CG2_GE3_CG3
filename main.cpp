@@ -42,19 +42,26 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 {
 	OutputDebugStringA("Hello, DirectX\n");
 
+	// ログのディレクトリを作成
 	std::filesystem::create_directories("logs");
 
+	// 現在の日時を取る
 	std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 
+	// 秒単位にする
 	std::chrono::time_point<std::chrono::system_clock,std::chrono::seconds>
 		nowSeconds = std::chrono::time_point_cast<std::chrono::seconds>(now);
 	
+	// タイムゾーンをローカルに変更する
 	std::chrono::zoned_time localTime{ std::chrono::current_zone(), nowSeconds };
 
+	// 日時を文字にする
 	std::string dateString = std::format("{:%Y%m%d_%H%M%S}", localTime);
 
+	// ファイルのパスを作る
 	std::string logFilePath = std::string("logs/") + dateString + ".log";
 
+	// ファイルのストリームを作る
 	std::ofstream logStream(logFilePath);
 
 	// ウィンドウクラスの登録
