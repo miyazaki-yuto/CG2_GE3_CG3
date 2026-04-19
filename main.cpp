@@ -4,6 +4,14 @@
 #include <filesystem>// ファイルとディレクトリを操作するための奴
 #include <fstream> // ファイルの読み書きをするための奴
 #include <chrono> // 時間を扱うための奴
+#include <format> // 文字列のフォーマットをするための奴
+#include <d3d12.h> // DirectX 12のヘッダー
+#include <dxgi1_6.h> // DirectX Graphics Infrastructureのヘッダー
+#include <cassert> // アサーションを使うためのヘッダー
+
+// libファイルのリンク
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
 
 //int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 //{
@@ -38,6 +46,15 @@ void Log(std::ostream& os, const std::string& message) {
 	OutputDebugStringA(message.c_str());
 }
 
+// ワイド文字列を通常文字列に変換する
+std::string ConvertString(const std::wstring& str) {
+	if (str.empty()) { return std::string(); }
+	int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), NULL, 0, NULL, NULL);
+	std::string result(sizeNeeded, 0);
+	WideCharToMultiByte(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), result.data(), sizeNeeded, NULL, NULL);
+	return result;
+}
+
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
 	OutputDebugStringA("Hello, DirectX\n");
@@ -64,6 +81,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	// ファイルのストリームを作る
 	std::ofstream logStream(logFilePath);
 
+
 	// ウィンドウクラスの登録
 	WNDCLASS wc{};
 	// ウィンドウプロシーシャ
@@ -77,8 +95,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	// ウィンドウクラスを登録
 	RegisterClass(&wc);
-
-
 
 	// クライアント領域のサイズ
 	const int32_t kWindowWidth = 1280;
@@ -106,6 +122,61 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	//ウィンドウを表示する
 	ShowWindow(hWnd, nCmdShow);
+
+	// DXGI ファクトリーの生成
+	IDXGIFactory7* dxgiFactory = nullptr;
+
+	// 関数が成功したか同化をSUCCEEDEDマクロで判定出来る
+	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
+
+	// 初期化の根本的な部分でエラーがあったら危ないのでassertしとく
+	assert(SUCCEEDED(hr));
+
+	// 使用するアダプタ用の変数。最初にnullptrをしておく
+	IDXGIAdapter4* useAdapter = nullptr;
+	//fいい順にアダプタを頼む
+	for(UINT i = 0; dxgiFactory->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&useAdapter)) != DXGI_ERROR_NOT_FOUND; ++i)
+	{
+		// アダプターの情報を取得する
+		DXGI_ADAPTER_DESC3 adapterDesc{};
+		hr = useAdapter->GetDesc3(&adapterDesc);
+		assert(SUCCEEDED(hr)); // 取得できないは一大事
+		// ソフトウェアアダプタ出なければ採用
+		if(!(adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE))
+		{
+			// WCHAR配列をwstringに変えて
+			//更にstringに変換してLogに渡す
+			std::wstring adapterName = adapterDesc.Description;
+			Log(logStream, std::format("Use Adapter: {}", ConvertString(adapterName)));
+			break;
+		}
+		useAdapter = nullptr; // ソフトウェアアダプタの場合はみなかった事にする
+	}
+	// 適切なアダプタが見つからなかったので起動出来ない
+	assert(useAdapter != nullptr);
+
+	ID3D12Device* device = nullptr;
+	D3D_FEATURE_LEVEL featureLevels[] = {
+		D3D_FEATURE_LEVEL_12_2,D3D_FEATURE_LEVEL_12_1,D3D_FEATURE_LEVEL_12_0
+	};
+	const char* featureLevelStrings[] = {"12.2","12.1","12.0"};
+	// 高い順に生成出来るか試していく
+	for(size_t i = 0; i < _countof(featureLevels); ++i)
+	{
+		// 採用したアダプターでデバイスを生成
+		hr = D3D12CreateDevice(useAdapter, featureLevels[i], IID_PPV_ARGS(&device));
+		// 指定した機能レベルでデバイスが生成できたかを確認
+		if(SUCCEEDED(hr))
+		{
+			// 生成できたのでログ出力を行ってループを抜ける
+			Log(logStream, std::format("FeatureLevel : {}\n", featureLevelStrings[i]));
+			break;
+		}
+	}
+
+	// デバイスの生成が上手く行かなかったので起動できない
+	assert(device != nullptr); 
+	Log(logStream, "Complete create D3D12Device!!!\n");
 
 	MSG msg{};
 
