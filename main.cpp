@@ -8,10 +8,13 @@
 #include <d3d12.h> // DirectX 12のヘッダー
 #include <dxgi1_6.h> // DirectX Graphics Infrastructureのヘッダー
 #include <cassert> // アサーションを使うためのヘッダー
+#include <dbghelp.h>
+#include <strsafe.h>
 
 // libファイルのリンク
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib,"Dbghelp.lib")
 
 //int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 //{
@@ -55,9 +58,39 @@ std::string ConvertString(const std::wstring& str) {
 	return result;
 }
 
+static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
+{
+	//// 中身はこれから埋まる
+	//return EXCEPTION_EXECUTE_HANDLER;
+
+	// 時刻を獲得して時刻を名前に入れたファイルを作成。Dumpsディレクトリ以下に出力
+	SYSTEMTIME time;
+	GetLocalTime(&time);
+	wchar_t filePath[MAX_PATH] = { 0 };
+	CreateDirectory(L"./Dumps", nullptr);
+	StringCchPrintfW(filePath, GENERIC_READ | GENERIC_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
+	HANDLE dumoFileHandle = CreateFile(filePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
+	// processId(exeのId)とクラッシュ(例外)の発生↓threadIdを取得
+	DWORD processId = GetCurrentProcessId();
+	DWORD threadId = GetCurrentThreadId();
+	// 設定情報の入力
+	MINIDUMP_EXCEPTION_INFORMATION minidumpInformation{ 0 };
+	minidumpInformation.ThreadId = threadId;
+	minidumpInformation.ExceptionPointers = exception;
+	minidumpInformation.ClientPointers = TRUE;
+	// Dumpを出力。MiniDumpNormalは最低限の情報を出力するフラグ
+	MiniDumpWriteDump(GetCurrentProcess(), processId, dumoFileHandle, MiniDumpNormal, &minidumpInformation, nullptr, nullptr);
+	// 他に関連づけされているSEH例外ハンドラがあれば実行。通常プロセスを終了する
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
+	// 誰も細くしなかった場合に(Unhandled),細くする関数を登録
+	SetUnhandledExceptionFilter(ExportDump);
+
 	OutputDebugStringA("Hello, DirectX\n");
+
 
 	// ログのディレクトリを作成
 	std::filesystem::create_directories("logs");
@@ -179,6 +212,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	Log(logStream, "Complete create D3D12Device!!!\n");
 
 	MSG msg{};
+
+	uint32_t* p = nullptr;
+	*p = 100;
 
 	// ウィンドウのxボタンが押されているまでループ
 	while (msg.message != WM_QUIT)
