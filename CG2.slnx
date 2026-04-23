@@ -1,12 +1,9 @@
 <Solution>
   <Configurations>
     <Platform Name="x64" />
-    <Platform Name="x86" />
   </Configurations>
   <Folder Name="/ソリューション項目/">
     <File Path=".editorconfig" />
   </Folder>
-  <Project Path="CG2.vcxproj" Id="987f54ef-5315-4f27-add0-8290ebd3aebb">
-    <Build Solution="*|x86" Project="false" />
-  </Project>
+  <Project Path="CG2.vcxproj" Id="987f54ef-5315-4f27-add0-8290ebd3aebb" />
 </Solution>

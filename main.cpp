@@ -1,4 +1,4 @@
-﻿#include <Windows.h>
+#include <Windows.h>
 #include <cstdint>
 #include <string>
 #include <filesystem>// ファイルとディレクトリを操作するための奴
@@ -68,8 +68,13 @@ static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 	GetLocalTime(&time);
 	wchar_t filePath[MAX_PATH] = { 0 };
 	CreateDirectory(L"./Dumps", nullptr);
-	StringCchPrintfW(filePath, GENERIC_READ | GENERIC_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
+	// ファイルパスを作成
+	StringCchPrintfW(filePath, MAX_PATH, L"./Dumps/CrashDump_%04d%02d%02d_%02d%02d%02d.dmp",
+		time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond);
+
+	// 作成↓ファイルパスを使ってファイルを作成
 	HANDLE dumoFileHandle = CreateFile(filePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
+
 	// processId(exeのId)とクラッシュ(例外)の発生↓threadIdを取得
 	DWORD processId = GetCurrentProcessId();
 	DWORD threadId = GetCurrentThreadId();
@@ -213,8 +218,8 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	MSG msg{};
 
-	uint32_t* p = nullptr;
-	*p = 100;
+	//uint32_t* p = nullptr;
+	//*p = 100;
 
 	// ウィンドウのxボタンが押されているまでループ
 	while (msg.message != WM_QUIT)
