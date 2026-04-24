@@ -88,8 +88,8 @@ static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 	// 他に関連づけされているSEH例外ハンドラがあれば実行。通常プロセスを終了する
 	return EXCEPTION_EXECUTE_HANDLER;
 }
-
-int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
+																 // 使ってないからエラーになっちゃった
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/, _In_ int nCmdShow)
 {
 	// 誰も細くしなかった場合に(Unhandled),細くする関数を登録
 	SetUnhandledExceptionFilter(ExportDump);
