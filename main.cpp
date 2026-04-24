@@ -37,9 +37,10 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 // ファイルを書き出す
 void Log(std::ostream& os, const std::string& message) {
 	os << message << std::endl;
-	// メッセージに改行が勝手に付いて出力されるようにした
-	std::string formatted = message + "\n";
-	OutputDebugStringA(message.c_str());
+	// std::formatを使って改行をつける
+	std::string formatted = std::format("{}\n", message);
+	// formatted変数を正しく渡す
+	OutputDebugStringA(formatted.c_str());
 }
 
 // ワイド文字列を通常文字列に変換する
@@ -107,7 +108,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 	std::string dateString = std::format("{:%Y%m%d_%H%M%S}", localTime);
 
 	// ファイルのパスを作る
-	std::string logFilePath = std::string("logs/") + dateString + ".log";
+	std::string logFilePath = std::format("logs/{}.log", dateString);
 
 	// ファイルのストリームを作る
 	std::ofstream logStream(logFilePath);
