@@ -16,13 +16,6 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib,"Dbghelp.lib")
 
-//int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
-//{
-//	OutputDebugStringA("Hello, DirectX\n");
-//
-//	return 0;
-//}
-
 // ウィンドウプロシーシャ
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -75,7 +68,7 @@ static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 	// 作成↓ファイルパスを使ってファイルを作成
 	HANDLE dumoFileHandle = CreateFile(filePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
 
-	// processId(exeのId)とクラッシュ(例外)の発生↓threadIdを取得
+	// processIdとクラッシュの発生↓threadIdを取得
 	DWORD processId = GetCurrentProcessId();
 	DWORD threadId = GetCurrentThreadId();
 	// 設定情報の入力
@@ -91,7 +84,7 @@ static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 																 // 使ってないからエラーになっちゃった
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/, _In_ int nCmdShow)
 {
-	// 誰も細くしなかった場合に(Unhandled),細くする関数を登録
+	// 誰も細くしなかった場合に登録
 	SetUnhandledExceptionFilter(ExportDump);
 
 	OutputDebugStringA("Hello, DirectX\n");
