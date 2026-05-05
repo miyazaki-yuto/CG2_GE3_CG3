@@ -320,6 +320,16 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 	// 2つ目を作る
 	device->CreateRenderTargetView(swapChainResources[1], &rtvDesc, rtvHandles[1]);
 
+	// フェンスの生成
+	ID3D12Fence* fence = nullptr;
+	uint64_t fenceValue = 0;
+	hr = device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	assert(SUCCEEDED(hr));
+
+	// フェンスのOSイベントを生成
+	HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	assert(fenceEvent != nullptr);
+
 	MSG msg{};
 
 	//uint32_t* p = nullptr;
@@ -340,12 +350,27 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			// これから書き込むバックバッファのインデックスを取得
 			UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
+			// 画面を書き込みに切り替える
+			D3D12_RESOURCE_BARRIER barrier{};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.Transition.pResource = swapChainResources[backBufferIndex];
+			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;       // 今の状態
+			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;  // これからしたい状態
+			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			commandList->ResourceBarrier(1, &barrier);
+
 			// 描画先のRTVを設定する
 			commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], false, nullptr);
 
 			// 指定した色で画面全体をクリアする
 			float clearColor[] = { 0.1f, 0.25f, 0.5f, 1.0f }; // 青っぽい色。RGBAの順
 			commandList->ClearRenderTargetView(rtvHandles[backBufferIndex], clearColor, 0, nullptr);
+
+			// 画面を表示に切り替える
+			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET; // 今の状態
+			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;        // これからしたい状態
+			commandList->ResourceBarrier(1, &barrier);
 
 			// コマンドリストの内容を確定させる。すべてのコマンドを積んでからCloseすること
 			hr = commandList->Close();
@@ -357,6 +382,19 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 
 			// GPUとOSに画面の交換を行うよう通知する
 			swapChain->Present(1, 0);
+
+			// GPUのコマンド実行が終わるまでCPUを待機させる
+			fenceValue++;
+			// GPUに処理が終わったら動くように
+			commandQueue->Signal(fence, fenceValue);
+
+			// CPU側でGPUが本当にそこまで終わったか確認する
+			if (fence->GetCompletedValue() < fenceValue)
+			{
+				// 終わっていなければ、終わるまで待機する
+				fence->SetEventOnCompletion(fenceValue, fenceEvent);
+				WaitForSingleObject(fenceEvent, INFINITE);
+			}
 
 			// 次のフレーム用のコマンドリストを準備
 			hr = commandAllocator->Reset();
