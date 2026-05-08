@@ -2,8 +2,10 @@
 #include <dbghelp.h>
 #include <strsafe.h>
 #include "Engine.h"
+#include <dxgidebug.h>
 
 #pragma comment(lib,"Dbghelp.lib")
+#pragma comment(lib,"dxguid.lib")
 
 static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 {
@@ -34,9 +36,20 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 	SetUnhandledExceptionFilter(ExportDump);
 
 	// エンジンの起動
-	Engine engine;
-	engine.Initialize(hInstance, nCmdShow);
-	engine.Run();
+	{
+		Engine engine;
+		engine.Initialize(hInstance, nCmdShow);
+		engine.Run();
+	}
+
+	// リソースリークチェック
+	IDXGIDebug1* debug;
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
+		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
+		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
+		debug->Release();
+	}
 
 	return 0;
 }
