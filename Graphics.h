@@ -5,8 +5,19 @@
 #include <cstdint>
 #include <fstream>
 
+#include <dxcapi.h>
+#pragma comment(lib,"dxcompiler.lib")
+
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+
+// 一旦ココ後でファイル分けする
+struct Vector4 {
+	float x;
+	float y;
+	float z;
+	float w;
+};
 
 class Graphics
 {
@@ -21,6 +32,8 @@ public:
 	void BeginDraw();
 	// 描画終了（画面フリップと同期など）
 	void EndDraw();
+
+	void Draw();
 
 private:
 	// ComPtrを使用して自動解放を行う
@@ -37,4 +50,22 @@ private:
 	HANDLE fenceEvent_ = nullptr;
 	uint64_t fenceValue_ = 0;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2]{};
+
+	Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils_;
+	Microsoft::WRL::ComPtr<IDxcCompiler3> dxcCompiler_;
+	Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler_;
+
+	Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob_;
+	Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob_;
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
+
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
+
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+
+	D3D12_VIEWPORT viewport_{};
+	D3D12_RECT scissorRect_{};
 };
