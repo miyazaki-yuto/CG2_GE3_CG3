@@ -77,6 +77,7 @@ void Engine::Run()
 			graphics_->BeginDraw(); // 画面クリアなど
 
 			// ここにモデルやスプライトの描画コマンドを追加していく
+			graphics_->Draw();
 
 			graphics_->EndDraw();   // 画面フリップなど
 		}
