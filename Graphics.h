@@ -68,4 +68,6 @@ private:
 
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
 };

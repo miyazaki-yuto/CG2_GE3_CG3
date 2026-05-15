@@ -95,6 +95,36 @@ namespace {
 		// 実行用バイナリを返却
 		return shaderBlob;
 	}
+
+	// リソース作成の便利関数
+	ID3D12Resource* CreateBufferResource(ID3D12Device* device, size_t sizeInBytes) {
+		D3D12_HEAP_PROPERTIES uploadHeapProperties{};
+		uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // UploadHeapを使う
+
+		D3D12_RESOURCE_DESC resourceDesc{};
+		// バッファリソースの設定
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resourceDesc.Width = sizeInBytes;
+		// バッファの場合はこれらは1にする決まり
+		resourceDesc.Height = 1;
+		resourceDesc.DepthOrArraySize = 1;
+		resourceDesc.MipLevels = 1;
+		resourceDesc.SampleDesc.Count = 1;
+		// バッファの場合はこれにする決まり
+		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+		ID3D12Resource* resource = nullptr;
+		HRESULT hr = device->CreateCommittedResource(
+			&uploadHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&resourceDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&resource)
+		);
+		assert(SUCCEEDED(hr));
+		return resource;
+	}
 }
 
 Graphics::~Graphics()
@@ -232,6 +262,14 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	descriptionRootSignature.Flags = 
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
+	// RootParameter作成。複数設定できるので配列。今回は結果1つだけなので長さ1の配列
+	D3D12_ROOT_PARAMETER rootParameters[1] = {};
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // ConstantBufferView
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーで使う
+	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号 b0 に紐づけ
+	descriptionRootSignature.pParameters = rootParameters; // パラメータをセット
+	descriptionRootSignature.NumParameters = _countof(rootParameters);
+
 	// シリアライズしてバイナリにする
 	Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob;
 	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
@@ -299,34 +337,8 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState_));
 	assert(SUCCEEDED(hr));
 
-	// 頂点リソース用のヒープの設定
-	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
-	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // UploadHeapを使う
-
-	// 頂点リソースの設定
-	D3D12_RESOURCE_DESC vertexResourceDesc{};
-	// バッファリソース。テクスチャの場合はまた別の設定をする
-	vertexResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	vertexResourceDesc.Width = sizeof(Vector4) * 3; // リソースのサイズ。今回はVector4を3頂点分
-	// バッファの場合はこれらは1にする決まり
-	vertexResourceDesc.Height = 1;
-	vertexResourceDesc.DepthOrArraySize = 1;
-	vertexResourceDesc.MipLevels = 1;
-	vertexResourceDesc.SampleDesc.Count = 1;
-	// バッファの場合はこれにする決まり
-	vertexResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
 	// 実際に頂点リソースを作る
-	// ※ローカル変数ではなく、ヘッダで追加したメンバ変数(vertexResource_)に生成します
-	hr = device_->CreateCommittedResource(
-		&uploadHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&vertexResourceDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&vertexResource_)
-	);
-	assert(SUCCEEDED(hr));
+	vertexResource_.Attach(CreateBufferResource(device_.Get(), sizeof(Vector4) * 3));
 
 	// 頂点バッファビューを作成する
 	// リソースの先頭のアドレスから使う
@@ -361,6 +373,16 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	scissorRect_.right = width;
 	scissorRect_.top = 0;
 	scissorRect_.bottom = height;
+
+	// マテリアル用のリソースを作る。今回はcolor1つ分のサイズを用意する
+	materialResource_.Attach(CreateBufferResource(device_.Get(), sizeof(Vector4)));
+
+	// マテリアルにデータを書き込む
+	Vector4* materialData = nullptr;
+	// 書き込むためのアドレスを取得
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
+	// 今回は赤を書き込んでみる (Vector4にコンストラクタがないため波括弧で代入)
+	*materialData = { 1.0f, 0.0f, 0.0f, 1.0f };
 }
 
 void Graphics::BeginDraw()
@@ -420,6 +442,8 @@ void Graphics::EndDraw()
 void Graphics::Draw(){
 	// RootSignatureを設定。これを忘れると描画されない
 	commandList_->SetGraphicsRootSignature(rootSignature_.Get());
+
+	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
 	// PSOを設定
 	commandList_->SetPipelineState(graphicsPipelineState_.Get());
