@@ -3,22 +3,20 @@ struct Material
     float4 color;
 };
 
-// 資料通りのConstantBufferを使ったやり方はエラーが出たので少し古いやり方で
+// ピクセルシェーダー用の定数バッファ (b0)
 cbuffer gMaterial : register(b0)
 {
     Material gMaterialData;
 };
 
-struct PixelShaderOutput
+struct VertexShaderOutput
 {
-    float4 color : SV_TARGET0;
+    float4 position : SV_POSITION;
 };
 
-PixelShaderOutput main()
+// SV_TARGET セマンティクスをつけて「色」を出力する
+float4 main(VertexShaderOutput input) : SV_TARGET
 {
-    PixelShaderOutput output;
-    
-    output.color = gMaterialData.color;
-    
-    return output;
-};
+    // C++側で設定した赤色を出力する
+    return gMaterialData.color;
+}

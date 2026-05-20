@@ -2,6 +2,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl.h> // ComPtr用
+#include "Matrix4x4.h"
 #include <cstdint>
 #include <fstream>
 
@@ -19,6 +20,16 @@ struct Vector4 {
 	float w;
 };
 
+struct TransformData {
+	Vector3 scale;
+	Vector3 rotate;
+	Vector3 translate;
+};
+
+struct TransformationMatrix {
+	Matrix4x4 WVP;
+};
+
 class Graphics
 {
 public:
@@ -27,6 +38,9 @@ public:
 
 	// DirectXの初期化
 	void Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstream& logStream);
+
+	// フレーム計算用
+	void Update();
 
 	// 描画開始（画面クリアなど）
 	void BeginDraw();
@@ -70,4 +84,9 @@ private:
 	D3D12_RECT scissorRect_{};
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
+	Microsoft::WRL::ComPtr<ID3D12Resource> wvpResource_;
+
+	TransformationMatrix* wvpData_ = nullptr;
+	TransformData transform_;       
+	TransformData cameraTransform_;
 };

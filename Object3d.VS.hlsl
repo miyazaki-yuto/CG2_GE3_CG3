@@ -1,6 +1,12 @@
-struct VertexShaderOutput
+struct TransformationMatrix
 {
-    float4 position : SV_POSITION;
+    float4x4 WVP;
+};
+
+// 頂点シェーダー用の定数バッファ (b0)
+cbuffer gTransformationMatrix : register(b0)
+{
+    TransformationMatrix gTransformationMatrixData;
 };
 
 struct VertexShaderInput
@@ -8,9 +14,17 @@ struct VertexShaderInput
     float4 position : POSITION0;
 };
 
+struct VertexShaderOutput
+{
+    float4 position : SV_POSITION;
+};
+
 VertexShaderOutput main(VertexShaderInput input)
 {
     VertexShaderOutput output;
-    output.position = input.position;
+    
+    // 行列を使って座標変換を行う
+    output.position = mul(input.position, gTransformationMatrixData.WVP);
+    
     return output;
 }
