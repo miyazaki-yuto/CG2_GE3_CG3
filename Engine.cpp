@@ -74,6 +74,7 @@ void Engine::Run()
 			// --- ゲーム処理 ---
 
 			// --- 描画処理 ---
+			graphics_->Update();
 			graphics_->BeginDraw(); // 画面クリアなど
 
 			// ここにモデルやスプライトの描画コマンドを追加していく

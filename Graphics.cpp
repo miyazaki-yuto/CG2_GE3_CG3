@@ -125,6 +125,8 @@ namespace {
 		assert(SUCCEEDED(hr));
 		return resource;
 	}
+
+
 }
 
 Graphics::~Graphics()
@@ -262,13 +264,18 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	descriptionRootSignature.Flags = 
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	// RootParameter作成。複数設定できるので配列。今回は結果1つだけなので長さ1の配列
-	D3D12_ROOT_PARAMETER rootParameters[1] = {};
-	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // ConstantBufferView
-	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーで使う
-	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号 b0 に紐づけ
-	descriptionRootSignature.pParameters = rootParameters; // パラメータをセット
-	descriptionRootSignature.NumParameters = _countof(rootParameters);
+	// RootParameter作成。PixelShaderのMaterialとVertexShaderのTransform
+	D3D12_ROOT_PARAMETER rootParameters[2] = {};
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
+	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
+
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // VertexShaderで使う
+	rootParameters[1].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
+
+	descriptionRootSignature.pParameters = rootParameters; // ルートパラメータ配列へのポインタ
+	descriptionRootSignature.NumParameters = _countof(rootParameters); // 配列の長さ
 
 	// シリアライズしてバイナリにする
 	Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob;
@@ -383,6 +390,42 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	// 今回は赤を書き込んでみる (Vector4にコンストラクタがないため波括弧で代入)
 	*materialData = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+	// WVP用リソースを作る
+	wvpResource_.Attach(CreateBufferResource(device_.Get(), sizeof(Matrix4x4)));
+	// データを書き込む
+	Matrix4x4* wvpData = nullptr;
+	// 書き込むためのアドレスを取得
+	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData));
+	// 単位行列を書きこんでおく
+	*wvpData = MakeIdentity4x4();
+
+	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
+	wvpData_->WVP = MakeIdentity4x4();
+
+	// 初期トランスフォームの設定
+	transform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
+	cameraTransform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -5.0f} };
+
+}
+
+void Graphics::Update() {
+	// スクリーンショット2枚目の行列計算処理
+	transform_.rotate.y += 0.05f;
+
+	Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
+	Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate, cameraTransform_.translate);
+	Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+
+	// kWindowWidth_ などの代わりに、初期化時に渡されたアスペクト比を使います
+	// もし Graphics クラス内で画面幅が取れない場合は、一旦直接 1280.0f / 720.0f を入れてみてください
+	float aspectRatio = 1280.0f / 720.0f;
+	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, aspectRatio, 0.1f, 100.0f);
+
+	Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+
+	// GPUに送るデータに書き込み
+	wvpData_->WVP = worldViewProjectionMatrix;
 }
 
 void Graphics::BeginDraw()
@@ -444,6 +487,7 @@ void Graphics::Draw(){
 	commandList_->SetGraphicsRootSignature(rootSignature_.Get());
 
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
 
 	// PSOを設定
 	commandList_->SetPipelineState(graphicsPipelineState_.Get());
