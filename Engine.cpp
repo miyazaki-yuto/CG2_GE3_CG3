@@ -2,9 +2,22 @@
 #include <filesystem>
 #include <chrono>
 #include <format>
+#ifdef USE_IMGUI
+#include "externals/imgui/imgui.h"
+#include "externals/imgui/imgui_impl_win32.h"
+// ImGuiのメッセージハンドラーの宣言
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#endif
 
 LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+#ifdef USE_IMGUI
+	// メッセージは最初にImGuiに渡す
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
+		return true;
+	}
+#endif
+
 	switch (message)
 	{
 	case WM_DESTROY:

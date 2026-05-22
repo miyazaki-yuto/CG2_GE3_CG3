@@ -50,6 +50,10 @@ public:
 	void Draw();
 
 private:
+
+	void InitializeImGui(HWND hwnd); 
+	void ShutdownImGui();            
+
 	// ComPtrを使用して自動解放を行う
 	Microsoft::WRL::ComPtr<ID3D12Device> device_;
 	Microsoft::WRL::ComPtr<IDXGIFactory7> dxgiFactory_;
@@ -58,6 +62,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList_;
 	Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain_;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvDescriptorHeap_;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> srvDescriptorHeap_;
 	Microsoft::WRL::ComPtr<ID3D12Resource> swapChainResources_[2];
 	Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
 
