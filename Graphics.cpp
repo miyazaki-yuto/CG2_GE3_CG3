@@ -2,6 +2,11 @@
 #include <cassert>
 #include <format>
 #include <string>
+#ifdef USE_IMGUI
+#include "externals/imgui/imgui.h"
+#include "externals/imgui/imgui_impl_win32.h"
+#include "externals/imgui/imgui_impl_dx12.h"
+#endif
 
 // 内部だけで使うユーティリティ関数
 namespace {
@@ -126,11 +131,26 @@ namespace {
 		return resource;
 	}
 
+	// DescriptorHeap作成の便利関数
+	ID3D12DescriptorHeap* CreateDescriptorHeap(
+		ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible)
+	{
+		ID3D12DescriptorHeap* descriptorHeap = nullptr;
+		D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc{};
+		descriptorHeapDesc.Type = heapType;
+		descriptorHeapDesc.NumDescriptors = numDescriptors;
+		descriptorHeapDesc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		HRESULT hr = device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap));
+		assert(SUCCEEDED(hr));
+		return descriptorHeap;
+	}
 
 }
 
 Graphics::~Graphics()
 {
+	ShutdownImGui();
+
 	if (fenceEvent_) {
 		CloseHandle(fenceEvent_);
 	}
@@ -145,7 +165,6 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 		debugController->SetEnableGPUBasedValidation(TRUE);
 	}
 #endif
-
 	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory_));
 	assert(SUCCEEDED(hr));
 
@@ -214,11 +233,9 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	hr = dxgiFactory_->CreateSwapChainForHwnd(commandQueue_.Get(), hWnd, &swapChainDesc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(swapChain_.GetAddressOf()));
 	assert(SUCCEEDED(hr));
 
-	D3D12_DESCRIPTOR_HEAP_DESC rtvDescriptorHeapDesc{};
-	rtvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvDescriptorHeapDesc.NumDescriptors = 2;
-	hr = device_->CreateDescriptorHeap(&rtvDescriptorHeapDesc, IID_PPV_ARGS(&rtvDescriptorHeap_));
-	assert(SUCCEEDED(hr));
+	rtvDescriptorHeap_.Attach(CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false));
+
+	srvDescriptorHeap_.Attach(CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true));
 
 	hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&swapChainResources_[0]));
 	assert(SUCCEEDED(hr));
@@ -407,6 +424,7 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	transform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
 	cameraTransform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -5.0f} };
 
+	InitializeImGui(hWnd);
 }
 
 void Graphics::Update() {
@@ -449,6 +467,12 @@ void Graphics::BeginDraw()
 
 void Graphics::EndDraw()
 {
+#ifdef USE_IMGUI
+	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_.Get() };
+	commandList_->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList_.Get());
+
+#endif
 	UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
 
 	D3D12_RESOURCE_BARRIER barrier{};
@@ -483,6 +507,11 @@ void Graphics::EndDraw()
 }
 
 void Graphics::Draw(){
+#ifdef USE_IMGUI
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+#endif
 	// RootSignatureを設定。これを忘れると描画されない
 	commandList_->SetGraphicsRootSignature(rootSignature_.Get());
 
@@ -504,5 +533,45 @@ void Graphics::Draw(){
 
 	// 描画！ (3頂点、1インスタンス、0開始インデックス、0開始インスタンス)
 	commandList_->DrawInstanced(3, 1, 0, 0);
+
+#ifdef USE_IMGUI
+	ImGui::Begin("Debug");
+	ImGui::Text("Hello, world!");
+	ImGui::ShowDemoWindow();
+	ImGui::End();
+	ImGui::Render();
+#endif
+
 }
 
+void Graphics::InitializeImGui(HWND hwnd)
+{
+#ifdef USE_IMGUI
+	// 1. ImGuiのコンテキスト作成
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+
+	// 2. Win32用プラットフォームバックエンドの初期化
+	ImGui_ImplWin32_Init(hwnd);
+
+	// 3. DirectX12用レンダラーバックエンドの初期化
+	ImGui_ImplDX12_Init(
+		device_.Get(),
+		2, // バックバッファ数（swapChainResources_の要素数）
+		DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, // 【修正】ここを UNORM から UNORM_SRGB に変更します
+		srvDescriptorHeap_.Get(),
+		srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart(),
+		srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart()
+	);
+#endif
+}
+void Graphics::ShutdownImGui()
+{
+#ifdef USE_IMGUI
+	// ImGuiの終了処理（初期化とは逆の順番で解放します）
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
+#endif
+}
