@@ -30,6 +30,11 @@ struct TransformationMatrix {
 	Matrix4x4 WVP;
 };
 
+struct VertexData {
+	Vector4 position;
+	float uv[2];
+};
+
 class Graphics
 {
 public:
