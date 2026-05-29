@@ -3,6 +3,9 @@
 #include <strsafe.h>
 #include "Engine.h"
 #include <dxgidebug.h>
+#include <objbase.h>
+#include "externals/DirectXTex/DirectXTex.h"
+
 
 #pragma comment(lib,"Dbghelp.lib")
 #pragma comment(lib,"dxguid.lib")
@@ -32,8 +35,15 @@ static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/, _In_ int nCmdShow)
 {
+
 	// クラッシュダンプの登録
 	SetUnhandledExceptionFilter(ExportDump);
+
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	if (FAILED(hr)) {
+		// 初期化に失敗した場合はエラー終了
+		return -1;
+	}
 
 	// エンジンの起動
 	{
@@ -41,6 +51,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		engine.Initialize(hInstance, nCmdShow);
 		engine.Run();
 	}
+	
 
 	// リソースリークチェック
 	IDXGIDebug1* debug;
@@ -51,5 +62,8 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		debug->Release();
 	}
 
+
+	// COMの終了処理
+	CoUninitialize(); 
 	return 0;
 }

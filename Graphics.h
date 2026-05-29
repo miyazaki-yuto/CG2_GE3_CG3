@@ -13,11 +13,23 @@
 #pragma comment(lib, "dxgi.lib")
 
 // 一旦ココ後でファイル分けする
+struct Vector2
+{
+	float x;
+	float y;
+};
+
 struct Vector4 {
 	float x;
 	float y;
 	float z;
 	float w;
+};
+
+// 同じ名前がもうあるから
+struct TextureVertexData {
+	Vector4 position;
+	Vector2 texcoord; 
 };
 
 struct TransformData {
@@ -99,4 +111,7 @@ private:
 	TransformationMatrix* wvpData_ = nullptr;
 	TransformData transform_;       
 	TransformData cameraTransform_;
+
+	// テクスチャリソースを保持する変数
+	Microsoft::WRL::ComPtr<ID3D12Resource> textureResource_;
 };
