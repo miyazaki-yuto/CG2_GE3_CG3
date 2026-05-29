@@ -9,10 +9,13 @@ class Engine
 {
 public:
 	Engine() = default;
-	~Engine() = default;
+	~Engine();
 
 	void Initialize(HINSTANCE hInstance, int nCmdShow);
-	void Run();
+	bool ProcessMessage();
+	Graphics* GetGraphics() const { return graphics_.get(); }
+
+	static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception);
 
 private:
 	static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);

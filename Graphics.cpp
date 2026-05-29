@@ -2,11 +2,13 @@
 #include <cassert>
 #include <format>
 #include <string>
+#include <vector>
 #ifdef USE_IMGUI
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_win32.h"
 #include "externals/imgui/imgui_impl_dx12.h"
 #include "externals/DirectXTex/DirectXTex.h"
+#include"externals/DirectXTex/d3dx12.h"
 #endif
 
 // 内部だけで使うユーティリティ関数
@@ -59,11 +61,9 @@ namespace {
 		resourceDesc.SampleDesc.Count = 1;                                       // サンプリングカウント
 		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metadata.dimension);   // 1D, 2D, 3Dのどれか
 
-		// 2. 利用するHeapの設定
+		// 2. 利用するHeapの設定 (★ここを変更)
 		D3D12_HEAP_PROPERTIES heapProperties{};
-		heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
-		heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-		heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
 
 		// 3. Resourceを生成する
 		ID3D12Resource* resource = nullptr;
@@ -71,7 +71,7 @@ namespace {
 			&heapProperties,                            // ヒープの設定
 			D3D12_HEAP_FLAG_NONE,                       // 特にフラグなし
 			&resourceDesc,                              // リソースの設定
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, // ★ココを変更
+			D3D12_RESOURCE_STATE_COPY_DEST,             // ★ココを変更 (データ転送される設定)
 			nullptr,                                    // クリア値
 			IID_PPV_ARGS(&resource)                     // 生成されたリソースを受け取る
 		);
@@ -80,24 +80,55 @@ namespace {
 		return resource;
 	}
 
-	void UploadTextureData(ID3D12Resource* texture, const DirectX::ScratchImage& mipImages)
+	[[nodiscard]]
+	ID3D12Resource* UploadTextureData(
+		ID3D12Resource* texture,
+		const DirectX::ScratchImage& mipImages,
+		ID3D12Device* device,
+		ID3D12GraphicsCommandList* commandList)
 	{
-		// Meta情報を取得
-		const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
-		// 全MipMapについて
-		for (size_t mipLevel = 0; mipLevel < metadata.mipLevels; ++mipLevel) {
-			// MipMapLevelを指定して各Imageを取得
-			const DirectX::Image* img = mipImages.GetImage(mipLevel, 0, 0);
-			// Textureに転送
-			HRESULT hr = texture->WriteToSubresource(
-				UINT(mipLevel),
-				nullptr,              // 全領域へコピー
-				img->pixels,          // 元データアドレス
-				UINT(img->rowPitch),  // 1ラインサイズ
-				UINT(img->slicePitch) // 1枚サイズ
-			);
-			assert(SUCCEEDED(hr));
-		}
+		// 1. サブリソースデータの準備
+		std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+		DirectX::PrepareUpload(device, mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
+
+		// 2. 中間リソース（Upload Heap）に必要なサイズを取得
+		uint64_t intermediateSize = GetRequiredIntermediateSize(texture, 0, UINT(subresources.size()));
+
+		// 3. 中間リソース（Upload Heap）の作成
+		ID3D12Resource* intermediateResource = nullptr;
+		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(intermediateSize);
+
+		HRESULT hr = device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&intermediateResource)
+		);
+		assert(SUCCEEDED(hr));
+
+		// 4. データ転送コマンドの積む (中間リソース -> VRAM上のテクスチャ)
+		UpdateSubresources(
+			commandList,
+			texture,
+			intermediateResource,
+			0, 0,
+			UINT(subresources.size()),
+			subresources.data()
+		);
+
+		// 5. テクスチャの状態を COPY_DEST から PIXEL_SHADER_RESOURCE へ変更
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			texture,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+		);
+		commandList->ResourceBarrier(1, &barrier);
+
+		// 中間リソースはコマンド実行完了まで保持する必要があるため返す
+		return intermediateResource;
 	}
 
 	void Log(std::ostream& os, const std::string& message) {
@@ -555,7 +586,12 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 
 	// 2. GPU側にテクスチャ用の領域を作成して、データを転送
 	textureResource_ = CreateTextureResource(device_.Get(), metadata);
-	UploadTextureData(textureResource_.Get(), mipImages);
+	[[maybe_unused]] ID3D12Resource* intermediateResource = UploadTextureData(
+		textureResource_.Get(),
+		mipImages,
+		device_.Get(),
+		commandList_.Get()
+	);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
