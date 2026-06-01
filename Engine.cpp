@@ -3,8 +3,13 @@
 #include <chrono>
 #include <format>
 #ifdef USE_IMGUI
+#include <DbgHelp.h>
+#include <strsafe.h>
+#pragma comment(lib, "Dbghelp.lib")
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_win32.h"
+#include <dxgidebug.h>
+#pragma comment(lib, "dxguid.lib")
 // ImGuiのメッセージハンドラーの宣言
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
@@ -25,6 +30,23 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		return 0;
 	}
 	return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+Engine::~Engine()
+{
+	// Engineが持つ graphics_ (std::unique_ptr) をここで明示的に解放する
+	// これにより、COMオブジェクトの解放がリークチェックより先に確実に行われます
+	graphics_.reset();
+
+	// リソースリークチェック
+	IDXGIDebug1* debug = nullptr;
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug))))
+	{
+		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
+		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
+		debug->Release();
+	}
 }
 
 void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
@@ -63,37 +85,43 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 	graphics_->Initialize(hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
 }
 
-void Engine::Run()
+bool Engine::ProcessMessage()
 {
 	MSG msg{};
-	bool initialLog = false;
-
-	// メインループ
-	while (msg.message != WM_QUIT)
+	// メッセージがある限りループして処理
+	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 	{
-		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		// ウィンドウの×ボタンなどが押され、終了メッセージが来たら false を返す
+		if (msg.message == WM_QUIT)
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+			return false;
 		}
-		else
-		{
-			if (!initialLog) {
-				logStream_ << "Loop Start" << std::endl;
-				OutputDebugStringA("Loop Start\n");
-				initialLog = true;
-			}
-
-			// --- ゲーム処理 ---
-
-			// --- 描画処理 ---
-			graphics_->Update();
-			graphics_->BeginDraw(); // 画面クリアなど
-
-			// ここにモデルやスプライトの描画コマンドを追加していく
-			graphics_->Draw();
-
-			graphics_->EndDraw();   // 画面フリップなど
-		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
+	// 終了メッセージが来ていなければ true を返す（ゲーム続行）
+	return true;
+}
+
+LONG WINAPI Engine::ExportDump(EXCEPTION_POINTERS* exception)
+{
+	SYSTEMTIME time;
+	GetLocalTime(&time);
+	wchar_t filePath[MAX_PATH] = { 0 };
+	CreateDirectory(L"./Dumps", nullptr);
+	StringCchPrintfW(filePath, MAX_PATH, L"./Dumps/CrashDump_%04d%02d%02d_%02d%02d%02d.dmp",
+		time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond);
+
+	HANDLE dumoFileHandle = CreateFile(filePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
+
+	DWORD processId = GetCurrentProcessId();
+	DWORD threadId = GetCurrentThreadId();
+
+	MINIDUMP_EXCEPTION_INFORMATION minidumpInformation{ 0 };
+	minidumpInformation.ThreadId = threadId;
+	minidumpInformation.ExceptionPointers = exception;
+	minidumpInformation.ClientPointers = TRUE;
+
+	MiniDumpWriteDump(GetCurrentProcess(), processId, dumoFileHandle, MiniDumpNormal, &minidumpInformation, nullptr, nullptr);
+	return EXCEPTION_EXECUTE_HANDLER;
 }
