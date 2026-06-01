@@ -593,6 +593,29 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 		commandList_.Get()
 	);
 
+	// 6. CommandListを閉じて、CommandQueueを使って実行する
+	hr = commandList_->Close();
+	assert(SUCCEEDED(hr));
+	ID3D12CommandList* commandLists[] = { commandList_.Get() };
+	commandQueue_->ExecuteCommandLists(1, commandLists);
+
+	// 7. 実行完了を待つ 
+	fenceValue_++;
+	commandQueue_->Signal(fence_.Get(), fenceValue_);
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+
+	// GPUでの転送が終わったので、中間リソースを解放する
+	intermediateResource->Release();
+
+	// 次の処理(ImGuiの初期化や描画ループ)のためにCommandListとCommandAllocatorをリセット
+	hr = commandAllocator_->Reset();
+	assert(SUCCEEDED(hr));
+	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
+	assert(SUCCEEDED(hr));
+
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -615,7 +638,7 @@ void Graphics::Update() {
 	Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate, cameraTransform_.translate);
 	Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
-	// kWindowWidth_ などの代わりに、初期化時に渡されたアスペクト比を使います
+	// kWindowWidth_ などの代わりに、初期化時に渡されたアスペクト比を使う
 	// もし Graphics クラス内で画面幅が取れない場合は、一旦直接 1280.0f / 720.0f を入れてみてください
 	float aspectRatio = 1280.0f / 720.0f;
 	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, aspectRatio, 0.1f, 100.0f);
@@ -746,7 +769,7 @@ void Graphics::InitializeImGui(HWND hwnd)
 	ImGui_ImplDX12_Init(
 		device_.Get(),
 		2, // バックバッファ数（swapChainResources_の要素数）
-		DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, // 【修正】ここを UNORM から UNORM_SRGB に変更します
+		DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, // ここを UNORM から UNORM_SRGB に変更します
 		srvDescriptorHeap_.Get(),
 		srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart(),
 		srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart()
