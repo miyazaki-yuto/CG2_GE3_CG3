@@ -114,4 +114,8 @@ private:
 
 	// テクスチャリソースを保持する変数
 	Microsoft::WRL::ComPtr<ID3D12Resource> textureResource_;
+
+	// zバッファ(深度バッファ)用
+	Microsoft::WRL::ComPtr<ID3D12Resource> depthBuffer_;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_;
 };
