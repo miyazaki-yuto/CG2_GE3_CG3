@@ -427,11 +427,8 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	assert(SUCCEEDED(hr));
 
 	// Vertex Shaderをコンパイルしてバイナリを得る
-	vertexShaderBlob_ = CompileShader(L"Object3d.VS.hlsl", L"vs_6_0", dxcUtils_.Get(), dxcCompiler_.Get(), includeHandler_.Get(), logStream);
-	assert(vertexShaderBlob_ != nullptr);
-
-	pixelShaderBlob_ = CompileShader(L"Object3d.PS.hlsl", L"ps_6_0", dxcUtils_.Get(), dxcCompiler_.Get(), includeHandler_.Get(), logStream);
-	assert(pixelShaderBlob_ != nullptr);
+	vertexShaderBlob_.Attach(CompileShader(L"Object3d.VS.hlsl", L"vs_6_0", dxcUtils_.Get(), dxcCompiler_.Get(), includeHandler_.Get(), logStream));
+	pixelShaderBlob_.Attach(CompileShader(L"Object3d.PS.hlsl", L"ps_6_0", dxcUtils_.Get(), dxcCompiler_.Get(), includeHandler_.Get(), logStream));
 	// RootSignatureの作成
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags =
@@ -647,13 +644,12 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 
 	// 2. GPU側にテクスチャ用の領域を作成して、データを転送
-	textureResource_ = CreateTextureResource(device_.Get(), metadata);
-	[[maybe_unused]] ID3D12Resource* intermediateResource = UploadTextureData(
-		textureResource_.Get(),
-		mipImages,
-		device_.Get(),
-		commandList_.Get()
-	);
+	textureResource_.Attach(CreateTextureResource(device_.Get(), metadata));
+	// 生ポインタではなく ComPtr で受け、.Attach() を使用する
+	Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
+	intermediateResource.Attach(UploadTextureData(
+		textureResource_.Get(), mipImages, device_.Get(), commandList_.Get()
+	));
 
 	// 6. CommandListを閉じて、CommandQueueを使って実行する
 	hr = commandList_->Close();
