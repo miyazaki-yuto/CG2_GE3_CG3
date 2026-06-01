@@ -372,6 +372,50 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	fenceEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	assert(fenceEvent_ != nullptr);
 
+	// 1. DSV用ディスクリプタヒープの作成
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc{};
+	dsvHeapDesc.NumDescriptors = 1;
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	hr = device_->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvDescriptorHeap_));
+	assert(SUCCEEDED(hr));
+
+	// 2. 深度バッファリソースの設定
+	D3D12_RESOURCE_DESC depthResDesc{};
+	depthResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	depthResDesc.Width = width; // Initializeの引数を使用
+	depthResDesc.Height = height; // Initializeの引数を使用
+	depthResDesc.DepthOrArraySize = 1;
+	depthResDesc.MipLevels = 1;
+	depthResDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 深度24bit, ステンシル8bit
+	depthResDesc.SampleDesc.Count = 1;
+	depthResDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	// 3. ヒーププロパティとクリア値の設定
+	D3D12_HEAP_PROPERTIES depthHeapProps{};
+	depthHeapProps.Type = D3D12_HEAP_TYPE_DEFAULT; // VRAM上に作成
+
+	D3D12_CLEAR_VALUE depthClearValue{};
+	depthClearValue.DepthStencil.Depth = 1.0f; // 最大値（一番奥）でクリア
+	depthClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	// 4. リソースの生成
+	hr = device_->CreateCommittedResource(
+		&depthHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&depthResDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depthClearValue,
+		IID_PPV_ARGS(&depthBuffer_)
+	);
+	assert(SUCCEEDED(hr));
+
+	// 5. DSV（Depth Stencil View）の作成
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	device_->CreateDepthStencilView(depthBuffer_.Get(), &dsvDesc, dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
+	// --- ここまで ---
+
 	// dxcCompilerを初期化
 	hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils_));
 	assert(SUCCEEDED(hr));
@@ -487,22 +531,26 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	// 三角形の中を塗りつぶす
 	resterizerDesc.FillMode = D3D12_FILL_MODE_SOLID; 
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get(); // RootSignature
-	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc; // InputLayout
-	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() }; // VertexShader
-	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() }; // PixelShader
-	graphicsPipelineStateDesc.BlendState = blendDesc; // BlendState
-	graphicsPipelineStateDesc.RasterizerState = resterizerDesc; // RasterizerState 
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
+	depthStencilDesc.DepthEnable = true; // 深度テストを有効化
+	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // 深度バッファへの書き込みを有効化
+	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // 深度値が小さい（手前にある）ものを描画
 
-	// 書き込むRTVの情報
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
+	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
+	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc;
+	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() };
+	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() };
+	graphicsPipelineStateDesc.BlendState = blendDesc;
+	graphicsPipelineStateDesc.RasterizerState = resterizerDesc;
+
+	// ここに深度テストの設定を適用
+	graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc;
+	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
 	graphicsPipelineStateDesc.NumRenderTargets = 1;
 	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-
-	// 利用するトポロジ（形状）のタイプ。三角形
 	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-
-	// どのように画面に色を打ち込むかの設定（気にしなくて良い）
 	graphicsPipelineStateDesc.SampleDesc.Count = 1;
 	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 
@@ -511,7 +559,7 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	assert(SUCCEEDED(hr));
 
 	// 実際に頂点リソースを作る
-	vertexResource_.Attach(CreateBufferResource(device_.Get(), sizeof(TextureVertexData) * 3));
+	vertexResource_.Attach(CreateBufferResource(device_.Get(), sizeof(TextureVertexData) * 6));
 	// 頂点バッファビューを作成する
 	// リソースの先頭のアドレスから使う
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
@@ -519,7 +567,7 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	// リソースの先頭のアドレスから使う
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
 	// 使用するリソースのサイズは頂点3つ分のサイズ
-	vertexBufferView_.SizeInBytes = sizeof(TextureVertexData) * 3;
+	vertexBufferView_.SizeInBytes = sizeof(TextureVertexData) * 6;
 	// 1頂点あたりのサイズ (ここも VertexData に)
 	vertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
 
@@ -539,6 +587,20 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	// 右下
 	textureVertexData[2].position = { 0.5f, -0.5f, 0.0f, 1.0f };
 	textureVertexData[2].texcoord = { 1.0f, 1.0f };
+
+
+
+	// 左下
+	textureVertexData[3].position = { -0.5f, -0.5f, 0.5f, 1.0f };
+	textureVertexData[3].texcoord = { 0.0f, 1.0f };
+
+	// 上
+	textureVertexData[4].position = { 0.0f, 0.0f, 0.0f, 1.0f };
+	textureVertexData[4].texcoord = { 0.5f, 0.0f };
+
+	// 右下
+	textureVertexData[5].position = { 0.5f, -0.5f, -0.5f, 1.0f };
+	textureVertexData[5].texcoord = { 1.0f, 1.0f };
 
 	// ビューポートの設定
 	viewport_.Width = static_cast<float>(width);
@@ -632,7 +694,7 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 
 void Graphics::Update() {
 	// スクリーンショット2枚目の行列計算処理
-	transform_.rotate.y += 0.05f;
+	transform_.rotate.y += 0.005f;
 
 	Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
 	Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate, cameraTransform_.translate);
@@ -662,12 +724,18 @@ void Graphics::BeginDraw()
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	commandList_->ResourceBarrier(1, &barrier);
 
-	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], false, nullptr);
+	// DSVのハンドルを取得
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+
+	// OMSetRenderTargetsにDSVを渡すように変更
+	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], false, &dsvHandle);
 
 	float clearColor[] = { 0.1f, 0.25f, 0.5f, 1.0f };
 	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex], clearColor, 0, nullptr);
-}
 
+	// 深度バッファのクリアを追加 (1.0f でクリア)
+	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+}
 void Graphics::EndDraw()
 {
 #ifdef USE_IMGUI
@@ -742,7 +810,7 @@ void Graphics::Draw(){
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// 描画！ (3頂点、1インスタンス、0開始インデックス、0開始インスタンス)
-	commandList_->DrawInstanced(3, 1, 0, 0);
+	commandList_->DrawInstanced(6, 1, 0, 0);
 
 #ifdef USE_IMGUI
 	ImGui::Begin("Debug");
