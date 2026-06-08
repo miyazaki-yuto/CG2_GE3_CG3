@@ -16,6 +16,7 @@
 #pragma comment(lib, "dxgi.lib")
 
 const uint32_t kTriangleMaxCount = 1000;
+const uint32_t kSpriteMaxCount = 100;
 
 class Graphics
 {
@@ -26,6 +27,9 @@ public:
 	// DirectXの初期化
 	void Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstream& logStream);
 
+	// スプライトの描画に必要な初期化
+	void InitializeDrawSprite();
+
 	// フレーム計算用
 	void Update();
 
@@ -34,12 +38,26 @@ public:
 	// 描画終了
 	void EndDraw();
 
+	// --- Triangle用の描画関数 ---
 	// mainからデータを渡すための関数たち
 	void SetTriangleVertices(int index, const TextureVertexData* vertices);
 	void SetTriangleTransform(int index, const TransformData& transform);
 	void SetTriangleTexture(int index, int textureIndex);
 	void SetColor(const Vector4& color);
 	void Draw();
+
+	// --- Sprite用の描画関数 ---
+	// Sprite用の頂点データを設定
+	void SetSpriteVertices(int index, const TextureVertexData* vertices);
+	// Sprite用のTransformを設定
+	void SetSpriteTransform(int index, const TransformData& transform);
+	// Sprite用のテクスチャを設定
+	void SetSpriteTexture(int index, int textureIndex);
+	// Spriteの色を設定
+	void SetSpriteColor(int index, const Vector4& color);
+
+	// Spriteを描画する
+	void DrawSprites();
 
 	// 画像読み込み
 	int LoadTexture(const std::string& filePath);
@@ -83,12 +101,6 @@ private:
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
 
-	//Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-	//Microsoft::WRL::ComPtr<ID3D12Resource> wvpResource_;
-
-	//TransformationMatrix* wvpData_ = nullptr;
-	//TransformData transform_;       
-
 	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
 	Microsoft::WRL::ComPtr<ID3D12Resource> wvpResource_[kTriangleMaxCount];
 
@@ -117,6 +129,20 @@ private:
 	// テクスチャの重複読み込みを防ぐキャッシュ
 	std::unordered_map<std::string, int> textureCache_;
 
-	//  転送完了待ちの中間リソースを保持するリスト
-	//std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediateResources_;
+	// --- Sprite用のリソース ---
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> spritePipelineState_;
+	Microsoft::WRL::ComPtr<ID3D12Resource> spriteVertexResource_;
+	D3D12_VERTEX_BUFFER_VIEW spriteVertexBufferView_{};
+	TextureVertexData* mappedSpriteVertexData_ = nullptr;
+
+	// Sprite用のWVP行列(正投影)
+	Microsoft::WRL::ComPtr<ID3D12Resource> spriteWvpResource_[kSpriteMaxCount];
+	TransformationMatrix* spriteWvpData_[kSpriteMaxCount] = { nullptr };
+	TransformData spriteTransform_[kSpriteMaxCount];
+
+	// Sprite用のマテリアル(色)
+	Microsoft::WRL::ComPtr<ID3D12Resource> spriteMaterialResource_[kSpriteMaxCount];
+	Vector4* spriteMaterialData_[kSpriteMaxCount] = { nullptr };
+
+	int spriteSelectedTexture_[kSpriteMaxCount] = { 0 };
 };
