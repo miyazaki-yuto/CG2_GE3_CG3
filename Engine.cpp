@@ -83,6 +83,8 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 	// Graphicsクラスの初期化
 	graphics_ = std::make_unique<Graphics>();
 	graphics_->Initialize(hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
+
+	graphics_->InitializeDrawSprite();
 }
 
 bool Engine::ProcessMessage()

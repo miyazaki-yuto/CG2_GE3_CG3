@@ -7,9 +7,9 @@
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_win32.h"
 #include "externals/imgui/imgui_impl_dx12.h"
+#endif
 #include "externals/DirectXTex/DirectXTex.h"
 #include"externals/DirectXTex/d3dx12.h"
-#endif
 
 // 内部だけで使うユーティリティ関数
 namespace {
@@ -611,6 +611,52 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	InitializeImGui(hWnd);
 }
 
+void Graphics::InitializeDrawSprite() {
+	// 1. Sprite用パイプラインステートの作成
+	spritePipelineState_ = graphicsPipelineState_;
+
+	// 2. Sprite用頂点バッファの作成 (1スプライトにつき 三角形2つ = 6頂点)
+	size_t spriteVertexBufferSize = sizeof(TextureVertexData) * 6 * kSpriteMaxCount;
+	spriteVertexResource_.Attach(CreateBufferResource(device_.Get(), spriteVertexBufferSize));
+
+	spriteVertexBufferView_.BufferLocation = spriteVertexResource_->GetGPUVirtualAddress();
+	spriteVertexBufferView_.SizeInBytes = static_cast<UINT>(spriteVertexBufferSize);
+	spriteVertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
+
+	spriteVertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedSpriteVertexData_));
+
+	// 3. Sprite用リソースの初期化 (WVPとMaterial)
+	for (int i = 0; i < kSpriteMaxCount; ++i) {
+		// WVP
+		spriteWvpResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(Matrix4x4)));
+		spriteWvpResource_[i]->Map(0, nullptr, reinterpret_cast<void**>(&spriteWvpData_[i]));
+		spriteWvpData_[i]->WVP = MakeIdentity4x4();
+		spriteTransform_[i] = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
+
+		// Material (Color)
+		spriteMaterialResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(Vector4)));
+		spriteMaterialResource_[i]->Map(0, nullptr, reinterpret_cast<void**>(&spriteMaterialData_[i]));
+		*spriteMaterialData_[i] = { 1.0f, 1.0f, 1.0f, 1.0f }; // 初期色は白
+	}
+
+	// スプライトの基本形状（三角形2つの四角形）を設定
+	TextureVertexData* spriteVertexData = nullptr;
+	HRESULT hr = spriteVertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&spriteVertexData));
+	if (SUCCEEDED(hr)) {
+		// 1つ目の三角形
+		spriteVertexData[0] = { { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } }; // 左下
+		spriteVertexData[1] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }; // 左上
+		spriteVertexData[2] = { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } }; // 右下
+		// 2つ目の三角形
+		spriteVertexData[3] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }; // 左上
+		spriteVertexData[4] = { { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }; // 右上
+		spriteVertexData[5] = { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } }; // 右下
+
+		// アンマップしてGPUに確定させる
+		spriteVertexResource_->Unmap(0, nullptr);
+	}
+}
+
 void Graphics::Update() {
 	Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate, cameraTransform_.translate);
 	Matrix4x4 viewMatrix = Inverse(cameraMatrix);
@@ -622,6 +668,18 @@ void Graphics::Update() {
 	for (uint32_t i = 0; i < kTriangleMaxCount; ++i) { 
 		Matrix4x4 worldMatrix = MakeAffineMatrix(transform_[i].scale, transform_[i].rotate, transform_[i].translate);
 		wvpData_[i]->WVP = Multiply(worldMatrix, viewProjectionMatrix);
+	}
+
+	// Sprite用の正投影行列 (画面サイズに合わせる。ピクセル座標で指定できるようになります)
+	float windowWidth = 1280.0f; // kWindowWidth_ 等を使用してください
+	float windowHeight = 720.0f;
+	Matrix4x4 orthoMatrix = MakeOrthographicMatrix(0.0f, 0.0f, windowWidth, windowHeight, 0.0f, 100.0f);
+
+	for (uint32_t i = 0; i < kSpriteMaxCount; ++i) {
+		if (spriteWvpData_[i] == nullptr) continue;
+		// Spriteは通常View行列(カメラ)の影響を受けないため、World行列と正投影行列のみを掛けます
+		Matrix4x4 worldMatrix = MakeAffineMatrix(spriteTransform_[i].scale, spriteTransform_[i].rotate, spriteTransform_[i].translate);
+		spriteWvpData_[i]->WVP = Multiply(worldMatrix, orthoMatrix);
 	}
 }
 
@@ -875,3 +933,61 @@ int Graphics::LoadTexture(const std::string& filePath)
 
 	return returnIndex;
 }
+
+// --- Sprite用のセッター関数 ---
+void Graphics::SetSpriteVertices(int index, const TextureVertexData* vertices) {
+	if (index >= 0 && index < kSpriteMaxCount && mappedSpriteVertexData_ != nullptr) {
+		// 1スプライトにつき6頂点をコピー
+		for (int i = 0; i < 6; ++i) {
+			mappedSpriteVertexData_[index * 6 + i] = vertices[i];
+		}
+	}
+}
+
+void Graphics::SetSpriteTransform(int index, const TransformData& transform) {
+	if (index >= 0 && index < kSpriteMaxCount) {
+		spriteTransform_[index] = transform;
+	}
+}
+
+void Graphics::SetSpriteTexture(int index, int textureIndex) {
+	if (index >= 0 && index < kSpriteMaxCount) {
+		spriteSelectedTexture_[index] = textureIndex;
+	}
+}
+
+void Graphics::SetSpriteColor(int index, const Vector4& color) {
+	if (index >= 0 && index < kSpriteMaxCount && spriteMaterialData_[index] != nullptr) {
+		*spriteMaterialData_[index] = color;
+	}
+}
+
+
+// --- Sprite描画処理 ---
+void Graphics::DrawSprites() {
+	// スプライト用のパイプラインステートをセット
+	commandList_->SetPipelineState(spritePipelineState_.Get());
+
+	commandList_->IASetVertexBuffers(0, 1, &spriteVertexBufferView_);
+	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	UINT descriptorSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPUStart = srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart();
+
+	for (uint32_t i = 0; i < kSpriteMaxCount; ++i) {
+		// 各Spriteのマテリアル(色)をセット
+		commandList_->SetGraphicsRootConstantBufferView(0, spriteMaterialResource_[i]->GetGPUVirtualAddress());
+
+		// 各SpriteのWVP行列をセット
+		commandList_->SetGraphicsRootConstantBufferView(1, spriteWvpResource_[i]->GetGPUVirtualAddress());
+
+		// 各Spriteのテクスチャをバインド
+		D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPU = srvHandleGPUStart;
+		srvHandleGPU.ptr += descriptorSize * (1 + spriteSelectedTexture_[i]);
+		commandList_->SetGraphicsRootDescriptorTable(2, srvHandleGPU);
+
+		// 描画 (1スプライト = 6頂点)
+		commandList_->DrawInstanced(6, 1, i * 6, 0);
+	}
+}
+
