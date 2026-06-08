@@ -16,7 +16,7 @@
 #pragma comment(lib, "dxgi.lib")
 
 const uint32_t kTriangleMaxCount = 1000;
-const uint32_t kSpriteMaxCount = 100;
+const uint32_t kSpriteMaxCount = 1000;
 
 class Graphics
 {
@@ -59,8 +59,21 @@ public:
 	// Spriteを描画する
 	void DrawSprites();
 
+	// --- Sphere用の描画関数 ---
+	// 初期化
+	void InitializeDrawSphere();
+	// トランスフォームの設定
+	void SetSphereTransform(const TransformData& transform); 
+	// テクスチャの設定
+	void SetSphereTexture(int textureIndex);
+	// 色の設定
+	void SetSphereColor(const Vector4& color); 
+	// 描画
+	void DrawSphere();
+
 	// 画像読み込み
 	int LoadTexture(const std::string& filePath);
+
 
 private:
 
@@ -145,4 +158,18 @@ private:
 	Vector4* spriteMaterialData_[kSpriteMaxCount] = { nullptr };
 
 	int spriteSelectedTexture_[kSpriteMaxCount] = { 0 };
+
+	// --- Sphere用のリソース ---
+	Microsoft::WRL::ComPtr<ID3D12Resource> sphereVertexResource_;
+	D3D12_VERTEX_BUFFER_VIEW sphereVertexBufferView_{};
+	uint32_t sphereVertexCount_ = 0;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> sphereWvpResource_;
+	TransformationMatrix* sphereWvpData_ = nullptr;
+	TransformData sphereTransform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> sphereMaterialResource_;
+	Vector4* sphereMaterialData_ = nullptr;
+
+	int sphereSelectedTexture_ = 0;
 };

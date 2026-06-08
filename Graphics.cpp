@@ -3,6 +3,7 @@
 #include <format>
 #include <string>
 #include <vector>
+#include <cmath>
 #ifdef USE_IMGUI
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_win32.h"
@@ -991,3 +992,111 @@ void Graphics::DrawSprites() {
 	}
 }
 
+void Graphics::InitializeDrawSphere() {
+	// 球の分割数 (
+	const uint32_t kSubdivision = 16;
+	sphereVertexCount_ = kSubdivision * kSubdivision * 6;
+
+	// 頂点バッファの作成
+	size_t vertexBufferSize = sizeof(TextureVertexData) * sphereVertexCount_;
+	sphereVertexResource_.Attach(CreateBufferResource(device_.Get(), vertexBufferSize));
+	sphereVertexBufferView_.BufferLocation = sphereVertexResource_->GetGPUVirtualAddress();
+	sphereVertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
+	sphereVertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
+
+	TextureVertexData* mappedData = nullptr;
+	sphereVertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedData));
+
+	const float pi = 3.1415926535f;
+	uint32_t index = 0;
+	// 球の頂点を緯度・経度で計算して生成
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+		float lat = -pi / 2.0f + pi * latIndex / kSubdivision;
+		float nextLat = -pi / 2.0f + pi * (latIndex + 1.0f) / kSubdivision;
+
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+			float lon = 2.0f * pi * lonIndex / kSubdivision;
+			float nextLon = 2.0f * pi * (lonIndex + 1.0f) / kSubdivision;
+
+			// 球の1頂点を計算するラムダ式
+			auto calcVertex = [pi](float u, float v) -> TextureVertexData {
+				TextureVertexData vtx;
+				vtx.position.x = cos(v) * cos(u);
+				vtx.position.y = sin(v);
+				vtx.position.z = cos(v) * sin(u);
+				vtx.position.w = 1.0f;
+				// UV座標の計算
+				vtx.texcoord.x = u / (2.0f * pi);
+				vtx.texcoord.y = 1.0f - (v + pi / 2.0f) / pi;
+				return vtx;
+				};
+
+			TextureVertexData a = calcVertex(lon, lat);
+			TextureVertexData b = calcVertex(lon, nextLat);
+			TextureVertexData c = calcVertex(nextLon, lat);
+			TextureVertexData d = calcVertex(nextLon, nextLat);
+
+			// 1つ目の三角形
+			mappedData[index++] = a;
+			mappedData[index++] = b;
+			mappedData[index++] = c;
+			// 2つ目の三角形
+			mappedData[index++] = c;
+			mappedData[index++] = b;
+			mappedData[index++] = d;
+		}
+	}
+	sphereVertexResource_->Unmap(0, nullptr);
+
+	// WVPの作成
+	sphereWvpResource_.Attach(CreateBufferResource(device_.Get(), sizeof(TransformationMatrix)));
+	sphereWvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&sphereWvpData_));
+
+	// マテリアルの作成
+	sphereMaterialResource_.Attach(CreateBufferResource(device_.Get(), sizeof(Vector4)));
+	sphereMaterialResource_->Map(0, nullptr, reinterpret_cast<void**>(&sphereMaterialData_));
+	*sphereMaterialData_ = { 1.0f, 1.0f, 1.0f, 1.0f }; // 初期色は白
+}
+
+void Graphics::SetSphereTransform(const TransformData& transform) {
+	sphereTransform_ = transform;
+}
+
+void Graphics::SetSphereTexture(int textureIndex) {
+	sphereSelectedTexture_ = textureIndex;
+}
+
+void Graphics::SetSphereColor(const Vector4& color) {
+	if (sphereMaterialData_) {
+		*sphereMaterialData_ = color;
+	}
+}
+
+void Graphics::DrawSphere() {
+	// WVPの計算
+	// Matrix4x4の生成関数名は適宜環境のMatrix4x4.hに合わせてください。
+	Matrix4x4 worldMatrix = MakeAffineMatrix(sphereTransform_.scale, sphereTransform_.rotate, sphereTransform_.translate);
+	Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraTransform_.rotate, cameraTransform_.translate);
+	Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
+	sphereWvpData_->WVP = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+
+	// 描画コマンドの設定
+	commandList_->SetPipelineState(graphicsPipelineState_.Get());
+	commandList_->IASetVertexBuffers(0, 1, &sphereVertexBufferView_);
+	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// b0 : マテリアル
+	commandList_->SetGraphicsRootConstantBufferView(0, sphereMaterialResource_->GetGPUVirtualAddress());
+	// b1 : WVP行列
+	commandList_->SetGraphicsRootConstantBufferView(1, sphereWvpResource_->GetGPUVirtualAddress());
+
+	// t0 : テクスチャ
+	UINT descriptorSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPUStart = srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart();
+	srvHandleGPUStart.ptr += descriptorSize * sphereSelectedTexture_;
+	commandList_->SetGraphicsRootDescriptorTable(2, srvHandleGPUStart);
+
+	// ドローコール
+	commandList_->DrawInstanced(sphereVertexCount_, 1, 0, 0);
+}
