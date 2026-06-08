@@ -66,6 +66,16 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		graphics->SetSpriteTexture(0, selectedSpriteTexture);
 		graphics->SetSpriteColor(0, spriteColor);
 
+		graphics->InitializeDrawSphere();
+
+		TransformData sphereTransform = {
+			{ 1.0f, 1.0f, 1.0f }, // Scale 
+			{ 0.0f, 0.0f, 0.0f }, // Rotate
+			{ 2.0f, 0.0f, 0.0f }  // Translate
+		};
+		int selectedSphereTexture = 1; // monsterBall など
+		Vector4 sphereColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+
 		OutputDebugStringA("Loop Start\n");
 
 		while (engine.ProcessMessage())
@@ -83,6 +93,25 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			//================//
 			// 1. 描画準備
 			graphics->BeginDraw();
+
+			// 球の操作
+			ImGui::Begin("Sphere Control");
+			if (ImGui::DragFloat3("Sphere Scale", &sphereTransform.scale.x, 0.1f, 0.01f, 100.0f) ||
+				ImGui::SliderFloat3("Sphere Rotate", &sphereTransform.rotate.x, -3.1415f, 3.1415f) ||
+				ImGui::DragFloat3("Sphere Translate", &sphereTransform.translate.x, 0.1f)) {
+				graphics->SetSphereTransform(sphereTransform);
+			}
+
+			if (ImGui::ColorEdit4("Sphere Color", &sphereColor.x)) {
+				graphics->SetSphereColor(sphereColor);
+			}
+
+			if (ImGui::Combo("Sphere Texture", &selectedSphereTexture, textureNames, _countof(textureNames))) {
+				graphics->SetSphereTexture(selectedSphereTexture);
+			}
+			ImGui::End();
+			graphics->SetSphereTransform(sphereTransform);
+
 
 			ImGui::Begin("Sprite Control");
 
@@ -158,6 +187,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			// 実際のポリゴン描画
 			graphics->Draw();
 			graphics->DrawSprites();
+			graphics->DrawSphere();
 
 			// 画面フリップ
 			graphics->EndDraw();
