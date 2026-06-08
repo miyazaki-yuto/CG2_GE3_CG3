@@ -604,67 +604,9 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 
 	cameraTransform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -5.0f} };
 
-	// 1. Textureを読み込んで転送
-	DirectX::ScratchImage mipImages[3];
-	mipImages[0] = ::LoadTexture("Resources/uvChecker.png");
-	mipImages[1] = ::LoadTexture("Resources/monsterBall.png");
-	mipImages[2] = ::LoadTexture("Resources/White.png");
-
-	ID3D12Resource* intermediateResources[2] = { nullptr, nullptr };
-
-	for (int i = 0; i < 2; ++i) {
-		const DirectX::TexMetadata& metadata = mipImages[i].GetMetadata();
-		// 2. GPU側にテクスチャ用の領域を作成して、データを転送
-		textureResources_[i].Attach(CreateTextureResource(device_.Get(), metadata));
-		intermediateResources[i] = UploadTextureData(
-			textureResources_[i].Get(),
-			mipImages[i],
-			device_.Get(),
-			commandList_.Get()
-		);
-	}
-
-	// 6. CommandListを閉じて、CommandQueueを使って実行する
-	hr = commandList_->Close();
-	assert(SUCCEEDED(hr));
-	ID3D12CommandList* commandLists[] = { commandList_.Get() };
-	commandQueue_->ExecuteCommandLists(1, commandLists);
-
-	// 7. 実行完了を待つ
-	fenceValue_++;
-	commandQueue_->Signal(fence_.Get(), fenceValue_);
-	if (fence_->GetCompletedValue() < fenceValue_) {
-		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-		WaitForSingleObject(fenceEvent_, INFINITE);
-	}
-
-	// GPUでの転送が終わったので、中間リソースを解放する
-	if (intermediateResources[0]) intermediateResources[0]->Release();
-	if (intermediateResources[1]) intermediateResources[1]->Release();
-
-	// 次の処理のためにCommandListとCommandAllocatorをリセット
-	hr = commandAllocator_->Reset();
-	assert(SUCCEEDED(hr));
-	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
-	assert(SUCCEEDED(hr));
-
-	// ---- SRV の作成 ----
-	UINT descriptorSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandleCPU = srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-
-	for (int i = 0; i < 2; ++i) {
-		const DirectX::TexMetadata& metadata = mipImages[i].GetMetadata();
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-		srvDesc.Format = metadata.format;
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MipLevels = UINT(metadata.mipLevels);
-
-		// ImGuiが0番を使うからi=0は1番i=1は2番に作成する
-		D3D12_CPU_DESCRIPTOR_HANDLE handle = srvHandleCPU;
-		handle.ptr += descriptorSize * (1 + i);
-		device_->CreateShaderResourceView(textureResources_[i].Get(), &srvDesc, handle);
-	}
+	// テクスチャ読み込み
+	LoadTexture("Resources/uvChecker.png");
+	LoadTexture("Resources/monsterBall.png");
 
 	InitializeImGui(hWnd);
 }
@@ -752,7 +694,7 @@ void Graphics::EndDraw()
 	}
 
 	// GPU側の転送処理が完全に終わったので、安全に中間リソースをすべて解放する
-	intermediateResources_.clear();
+	//intermediateResources_.clear();
 
 	hr = commandAllocator_->Reset();
 	assert(SUCCEEDED(hr));
@@ -888,13 +830,6 @@ int Graphics::LoadTexture(const std::string& filePath)
 	ID3D12Resource* rawIntermediateResource = UploadTextureData(
 		textureResources_[textureCount_].Get(), mipImages, device_.Get(), commandList_.Get());
 
-	// 生ポインタを ComPtr に Attach してリストに保持する
-	if (rawIntermediateResource) {
-		Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
-		intermediateResource.Attach(rawIntermediateResource);
-		intermediateResources_.push_back(intermediateResource);
-	}
-
 	// 5. SRVの作成
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandleCPU = srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
 	UINT descriptorSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -909,7 +844,31 @@ int Graphics::LoadTexture(const std::string& filePath)
 
 	device_->CreateShaderResourceView(textureResources_[textureCount_].Get(), &srvDesc, srvHandleCPU);
 
-	// 6. キャッシュに登録して、ロード数をインクリメント
+	// 6. コマンドリストを閉じて実行し、転送完了を待つ (同期処理)
+	HRESULT hr = commandList_->Close();
+	assert(SUCCEEDED(hr));
+	ID3D12CommandList* commandLists[] = { commandList_.Get() };
+	commandQueue_->ExecuteCommandLists(1, commandLists);
+
+	fenceValue_++;
+	commandQueue_->Signal(fence_.Get(), fenceValue_);
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+
+	// 7. GPUでの転送が終わったので、中間リソースをその場で解放する
+	if (rawIntermediateResource) {
+		rawIntermediateResource->Release();
+	}
+
+	// 8. 次の処理のためにCommandListとCommandAllocatorをリセット
+	hr = commandAllocator_->Reset();
+	assert(SUCCEEDED(hr));
+	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
+	assert(SUCCEEDED(hr));
+
+	// 9. キャッシュに登録して、ロード数をインクリメント
 	textureCache_[filePath] = textureCount_;
 	int returnIndex = textureCount_;
 	textureCount_++;

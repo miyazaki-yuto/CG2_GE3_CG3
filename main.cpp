@@ -34,8 +34,11 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			{ {1.0f, 1.0f, 1.0f}, {0.0f, -3.0f, 0.0f}, {0.0f, 0.0f, 0.0f} },
 			{ {1.0f, 1.0f, 1.0f}, {0.0f, -3.0f, 0.0f}, {0.0f, 0.0f, 0.0f} }
 		};
-		int selectedTexture[2] = { 0, 0 };
-		const char* textureNames[] = { "uvChecker", "monsterBall" };
+
+		graphics->LoadTexture("Resources/White.png");
+
+		int selectedTexture[3] = { 0, 0 ,0};
+		const char* textureNames[] = { "uvChecker", "monsterBall" ,"White"};
 
 		TextureVertexData vertices[3] = {
 			{ { -0.5f, -0.5f, 0.0f, 1.0f }, { 0.0f, 1.0f } }, // 左下

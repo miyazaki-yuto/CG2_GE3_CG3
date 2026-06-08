@@ -118,5 +118,5 @@ private:
 	std::unordered_map<std::string, int> textureCache_;
 
 	//  転送完了待ちの中間リソースを保持するリスト
-	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediateResources_;
+	//std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediateResources_;
 };
