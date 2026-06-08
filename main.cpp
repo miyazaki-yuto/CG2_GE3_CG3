@@ -2,7 +2,7 @@
 #include "Engine.h"
 #include "CommonTypes.h"
 #include "externals/imgui/imgui.h"
-#include "TriangleEffect.h" // 追加
+#include "TriangleEffect.h" 
 
 enum Scene {
 	KADAI_SCENE,
