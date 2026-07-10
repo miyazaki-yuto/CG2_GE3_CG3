@@ -34,11 +34,13 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 Engine::~Engine()
 {
-	// Engineが持つ graphics_ (std::unique_ptr) をここで明示的に解放する
-	// これにより、COMオブジェクトの解放がリークチェックより先に確実に行われます
-	graphics_.reset();
+	// ✅ Graphics よりも先に明示的に GPU の処理完了を待つ
+	if (graphics_) {
+		// Graphics のリソース解放前に、GPU処理の完全な完了を待つ
+		graphics_.reset();
+	}
 
-	// リソースリークチェック
+	// 以下のリークチェックは同じ
 	IDXGIDebug1* debug = nullptr;
 	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug))))
 	{
@@ -48,7 +50,6 @@ Engine::~Engine()
 		debug->Release();
 	}
 }
-
 void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 {
 	OutputDebugStringA("Hello, DirectX\n");
@@ -125,5 +126,9 @@ LONG WINAPI Engine::ExportDump(EXCEPTION_POINTERS* exception)
 	minidumpInformation.ClientPointers = TRUE;
 
 	MiniDumpWriteDump(GetCurrentProcess(), processId, dumoFileHandle, MiniDumpNormal, &minidumpInformation, nullptr, nullptr);
+	// ダンプファイルのハンドルを閉じてリソースを解放
+	if (dumoFileHandle && dumoFileHandle != INVALID_HANDLE_VALUE) {
+		CloseHandle(dumoFileHandle);
+	}
 	return EXCEPTION_EXECUTE_HANDLER;
 }
