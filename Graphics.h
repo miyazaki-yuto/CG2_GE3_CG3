@@ -24,6 +24,8 @@ public:
 	Graphics() = default;
 	~Graphics();
 
+	void WaitForGpu();
+
 	// DirectXの初期化
 	void Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstream& logStream);
 
@@ -63,11 +65,11 @@ public:
 	// 初期化
 	void InitializeDrawSphere();
 	// トランスフォームの設定
-	void SetSphereTransform(const TransformData& transform); 
+	void SetSphereTransform(const TransformData& transform);
 	// テクスチャの設定
 	void SetSphereTexture(int textureIndex);
 	// 色の設定
-	void SetSphereColor(const Vector4& color); 
+	void SetSphereColor(const Vector4& color);
 	// 描画
 	void DrawSphere();
 
@@ -77,8 +79,9 @@ public:
 
 private:
 
-	void InitializeImGui(HWND hwnd); 
-	void ShutdownImGui();            
+	void InitializeImGui(HWND hwnd);
+	void ShutdownImGui();
+	void CleanupResources();
 
 	// ComPtrを使用して自動解放を行う
 	Microsoft::WRL::ComPtr<ID3D12Device> device_;
@@ -155,7 +158,7 @@ private:
 
 	// Sprite用のマテリアル(色)
 	Microsoft::WRL::ComPtr<ID3D12Resource> spriteMaterialResource_[kSpriteMaxCount];
-	Vector4* spriteMaterialData_[kSpriteMaxCount] = { nullptr };
+	Material* spriteMaterialData_[kSpriteMaxCount] = { nullptr };
 
 	int spriteSelectedTexture_[kSpriteMaxCount] = { 0 };
 
@@ -169,7 +172,11 @@ private:
 	TransformData sphereTransform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> sphereMaterialResource_;
-	Vector4* sphereMaterialData_ = nullptr;
+	Material* sphereMaterialData_ = nullptr;
 
 	int sphereSelectedTexture_ = 0;
+
+	// ライト用リソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
+	DirectionalLight* directionalLightData_ = nullptr;
 };

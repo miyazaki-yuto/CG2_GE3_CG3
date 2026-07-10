@@ -146,13 +146,13 @@ namespace {
 		IDxcCompiler3* dxcCompiler,
 		IDxcIncludeHandler* includeHandler,
 		std::ostream& logStream
-		) 
+	)
 	{
 		// ココの中身をこの後書いていく
 		// 1. ファイルを読む
 
 		// これからシェーダーをコンパイルする旨をログに出す
-		Log(logStream,ConvertString(std::format(L"Begin CompileShader, path:{}, profile:{}\n", filePath, profile)));
+		Log(logStream, ConvertString(std::format(L"Begin CompileShader, path:{}, profile:{}\n", filePath, profile)));
 		// HLSLファイルを読む
 		IDxcBlobEncoding* shaderSource = nullptr;
 		HRESULT hr = dxcUtils->LoadFile(filePath.c_str(), nullptr, &shaderSource);
@@ -192,8 +192,8 @@ namespace {
 		// 警告・エラーが出たらログに出して止める
 		IDxcBlobUtf8* shaderError = nullptr;
 		shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
-		if(shaderError != nullptr && shaderError->GetStringLength() !=0){
-			Log(logStream,shaderError->GetStringPointer());
+		if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
+			Log(logStream, shaderError->GetStringPointer());
 			// 警告・エラーダメゼッタイ
 			assert(false);
 		}
@@ -227,7 +227,7 @@ namespace {
 		// バッファリソースの設定
 		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 		resourceDesc.Width = sizeInBytes;
-		// バッファの場合はこれらは1にする決まり
+		// バッファの場合はこ���らは1にする決まり
 		resourceDesc.Height = 1;
 		resourceDesc.DepthOrArraySize = 1;
 		resourceDesc.MipLevels = 1;
@@ -264,13 +264,152 @@ namespace {
 
 }
 
+void Graphics::WaitForGpu()
+{
+	// コマンドキューにシグナルを送る
+	const uint64_t fenceValueToSignal = fenceValue_ + 1;
+	commandQueue_->Signal(fence_.Get(), fenceValueToSignal);
+
+	// GPUがそのシグナルに到達するまで待機する
+	if (fence_->GetCompletedValue() < fenceValueToSignal)
+	{
+		HANDLE eventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		fence_->SetEventOnCompletion(fenceValueToSignal, eventHandle);
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+	// 次のフェンス値に更新
+	fenceValue_ = fenceValueToSignal;
+}
+
+
 Graphics::~Graphics()
 {
+	WaitForGpu();
+
 	ShutdownImGui();
+
+	CleanupResources();
 
 	if (fenceEvent_) {
 		CloseHandle(fenceEvent_);
+		fenceEvent_ = nullptr;
 	}
+}
+
+void Graphics::CleanupResources()
+{
+	// Unmap CPU マッピングされたリソースを解放してから Reset する
+	if (mappedVertexData_ != nullptr && vertexResource_ != nullptr) {
+		vertexResource_->Unmap(0, nullptr);
+		mappedVertexData_ = nullptr;
+	}
+	if (mappedSpriteVertexData_ != nullptr && spriteVertexResource_ != nullptr) {
+		// InitializeDrawSprite の実装上、ここで Unmap されている場合もあるが
+		// 安全のためマップポインタが残っていれば Unmap しておく
+		spriteVertexResource_->Unmap(0, nullptr);
+		mappedSpriteVertexData_ = nullptr;
+	}
+	if (materialData_ != nullptr && materialResource_ != nullptr) {
+		materialResource_->Unmap(0, nullptr);
+		materialData_ = nullptr;
+	}
+	if (directionalLightData_ != nullptr && directionalLightResource_ != nullptr) {
+		directionalLightResource_->Unmap(0, nullptr);
+		directionalLightData_ = nullptr;
+	}
+	// 各要素配列の Unmap
+	for (int i = 0; i < kTriangleMaxCount; ++i) {
+		if (wvpData_[i] != nullptr && wvpResource_[i] != nullptr) {
+			wvpResource_[i]->Unmap(0, nullptr);
+			wvpData_[i] = nullptr;
+		}
+	}
+	for (int i = 0; i < kSpriteMaxCount; ++i) {
+		if (spriteWvpData_[i] != nullptr && spriteWvpResource_[i] != nullptr) {
+			spriteWvpResource_[i]->Unmap(0, nullptr);
+			spriteWvpData_[i] = nullptr;
+		}
+		if (spriteMaterialData_[i] != nullptr && spriteMaterialResource_[i] != nullptr) {
+			spriteMaterialResource_[i]->Unmap(0, nullptr);
+			spriteMaterialData_[i] = nullptr;
+		}
+	}
+	if (sphereWvpData_ != nullptr && sphereWvpResource_ != nullptr) {
+		sphereWvpResource_->Unmap(0, nullptr);
+		sphereWvpData_ = nullptr;
+	}
+	if (sphereMaterialData_ != nullptr && sphereMaterialResource_ != nullptr) {
+		sphereMaterialResource_->Unmap(0, nullptr);
+		sphereMaterialData_ = nullptr;
+	}
+
+	// テクスチャリソースの解放
+	for (size_t i = 0; i < kMaxTextures; ++i) {
+		textureResources_[i].Reset();
+	}
+	textureCache_.clear();
+
+	// Triangle リソースの解放
+	for (uint32_t i = 0; i < kTriangleMaxCount; ++i) {
+		if (wvpResource_[i]) {
+			wvpResource_[i].Reset();
+		}
+	}
+
+	// Sprite リソースの解放
+	for (uint32_t i = 0; i < kSpriteMaxCount; ++i) {
+		if (spriteWvpResource_[i]) {
+			spriteWvpResource_[i].Reset();
+		}
+		if (spriteMaterialResource_[i]) {
+			spriteMaterialResource_[i].Reset();
+		}
+	}
+
+	// Sphere リソースの解放
+	sphereVertexResource_.Reset();
+	sphereWvpResource_.Reset();
+	sphereMaterialResource_.Reset();
+
+	// その他の共通リソース
+	vertexResource_.Reset();
+	materialResource_.Reset();
+	depthBuffer_.Reset();
+	directionalLightResource_.Reset();
+
+	// パイプラインステート
+	graphicsPipelineState_.Reset();
+	spritePipelineState_.Reset();
+	rootSignature_.Reset();
+
+	// Heap
+	rtvDescriptorHeap_.Reset();
+	srvDescriptorHeap_.Reset();
+	dsvDescriptorHeap_.Reset();
+
+	// コマンド関連
+	commandList_.Reset();
+	commandAllocator_.Reset();
+	commandQueue_.Reset();
+
+	// デバイス関連
+	swapChain_.Reset();
+	for (int i = 0; i < 2; ++i) {
+		swapChainResources_[i].Reset();
+	}
+	fence_.Reset();
+
+	// Compiler 関連
+	includeHandler_.Reset();
+	dxcCompiler_.Reset();
+	dxcUtils_.Reset();
+
+	// Factory
+	dxgiFactory_.Reset();
+
+	// デバイスは最後に解放
+	device_.Reset();
 }
 
 void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstream& logStream)
@@ -440,15 +579,18 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 	// 配列のサイズを 2 から 3 に変更
-	D3D12_ROOT_PARAMETER rootParameters[3] = {};
+	D3D12_ROOT_PARAMETER rootParameters[4] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[0].Descriptor.ShaderRegister = 0;
 
 	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-	rootParameters[1].Descriptor.ShaderRegister = 0;
-
+	rootParameters[1].Descriptor.ShaderRegister = 1;
+	// b2 : 平行光源
+	rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;    // 定数バッファビュー
+	rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーからアクセスする
+	rootParameters[3].Descriptor.ShaderRegister = 2;                    // レジスタ番号 b2
 
 	D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
 	descriptorRange[0].BaseShaderRegister = 0; // t0に対応
@@ -499,30 +641,22 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	);
 	assert(SUCCEEDED(hr));
 
-	// 配列のサイズを2に変更
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs[2] = {};
-
-	inputElementDescs[0].SemanticName = "POSITION";
-	inputElementDescs[0].SemanticIndex = 0;
-	inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	inputElementDescs[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-
-	// 追加されたテクスチャ座標
-	inputElementDescs[1].SemanticName = "TEXCOORD";
-	inputElementDescs[1].SemanticIndex = 0;
-	inputElementDescs[1].Format = DXGI_FORMAT_R32G32_FLOAT;
-	inputElementDescs[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
+	{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
 
 
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
 	inputLayoutDesc.pInputElementDescs = inputElementDescs;
 	inputLayoutDesc.NumElements = _countof(inputElementDescs);
-	
+
 	// BlendStateの設定
 	D3D12_BLEND_DESC blendDesc{};
 	// すべての色要素を書き込む
 	blendDesc.RenderTarget[0].RenderTargetWriteMask =
-		D3D12_COLOR_WRITE_ENABLE_ALL; 
+		D3D12_COLOR_WRITE_ENABLE_ALL;
 
 	// RasterizerStateの設定
 	D3D12_RASTERIZER_DESC resterizerDesc{};
@@ -531,7 +665,7 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	resterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
 
 	// 三角形の中を塗りつぶす
-	resterizerDesc.FillMode = D3D12_FILL_MODE_SOLID; 
+	resterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 
 	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 	depthStencilDesc.DepthEnable = true; // 深度テストを有効化
@@ -588,18 +722,24 @@ void Graphics::Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstrea
 	scissorRect_.top = 0;
 	scissorRect_.bottom = height;
 
-	// マテリアル用のリソースを作る。今回はcolor1つ分のサイズを用意する
-	materialResource_.Attach(CreateBufferResource(device_.Get(), sizeof(Vector4)));
-
+	// Material構造体のサイズで確保
+	UINT materialBufferSize = (sizeof(Material) + 255) & ~255;  // 256バイト境界に丸める
+	materialResource_.Attach(CreateBufferResource(device_.Get(), materialBufferSize));
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-	// 初期色を書き込んでおく
-	*materialData_ = color_;
+	// Material構造体として使用できるようにキャスト
+	Material* matData = reinterpret_cast<Material*>(materialData_);
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
+	*materialData_ = color_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+	matData->enableLighting = 1;
 
 	// WVP用リソースを作る
 	for (int i = 0; i < kTriangleMaxCount; ++i) {
-		wvpResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(Matrix4x4)));
+		// ✅ sizeof(TransformationMatrix) に修正
+		wvpResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(TransformationMatrix)));
 		wvpResource_[i]->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_[i]));
 		wvpData_[i]->WVP = MakeIdentity4x4();
+		// ✅ World行列も初期化
+		wvpData_[i]->World = MakeIdentity4x4();
 		transform_[i] = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
 	}
 
@@ -629,21 +769,24 @@ void Graphics::InitializeDrawSprite() {
 	// 3. Sprite用リソースの初期化 (WVPとMaterial)
 	for (int i = 0; i < kSpriteMaxCount; ++i) {
 		// WVP
-		spriteWvpResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(Matrix4x4)));
+		spriteWvpResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(TransformationMatrix)));
 		spriteWvpResource_[i]->Map(0, nullptr, reinterpret_cast<void**>(&spriteWvpData_[i]));
 		spriteWvpData_[i]->WVP = MakeIdentity4x4();
 		spriteTransform_[i] = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
 
 		// Material (Color)
-		spriteMaterialResource_[i].Attach(CreateBufferResource(device_.Get(), sizeof(Vector4)));
+		UINT materialBufferSize = (sizeof(Material) + 255) & ~255;
+		spriteMaterialResource_[i].Attach(CreateBufferResource(device_.Get(), materialBufferSize));
 		spriteMaterialResource_[i]->Map(0, nullptr, reinterpret_cast<void**>(&spriteMaterialData_[i]));
-		*spriteMaterialData_[i] = { 1.0f, 1.0f, 1.0f, 1.0f }; // 初期色は白
+
+		spriteMaterialData_[i]->color = { 1.0f, 1.0f, 1.0f, 1.0f }; // 基本色（白）
+		spriteMaterialData_[i]->enableLighting = 0;                 // ★ 修正: 0に変更（ライティング無効）
 	}
 
-	// スプライトの基本形状（三角形2つの四角形）を設定
-	TextureVertexData* spriteVertexData = nullptr;
-	HRESULT hr = spriteVertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&spriteVertexData));
-	if (SUCCEEDED(hr)) {
+	// スプライトの基本形状（四角形=三角形2つ）を設定
+	// 既にマップされている場合はそのポインタを使い、未マップなら一時的に Map して Unmap する
+	if (mappedSpriteVertexData_ != nullptr) {
+		TextureVertexData* spriteVertexData = mappedSpriteVertexData_;
 		// 1つ目の三角形
 		spriteVertexData[0] = { { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } }; // 左下
 		spriteVertexData[1] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }; // 左上
@@ -652,9 +795,23 @@ void Graphics::InitializeDrawSprite() {
 		spriteVertexData[3] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }; // 左上
 		spriteVertexData[4] = { { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }; // 右上
 		spriteVertexData[5] = { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } }; // 右下
+	}
+	else {
+		TextureVertexData* spriteVertexData = nullptr;
+		HRESULT hr = spriteVertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&spriteVertexData));
+		if (SUCCEEDED(hr)) {
+			// 1つ目の三角形
+			spriteVertexData[0] = { { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } }; // 左下
+			spriteVertexData[1] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }; // 左上
+			spriteVertexData[2] = { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } }; // 右下
+			// 2つ目の三角形
+			spriteVertexData[3] = { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }; // 左上
+			spriteVertexData[4] = { { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }; // 右上
+			spriteVertexData[5] = { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } }; // 右下
 
-		// アンマップしてGPUに確定させる
-		spriteVertexResource_->Unmap(0, nullptr);
+			// 一時的に Map したのでアンマップする
+			spriteVertexResource_->Unmap(0, nullptr);
+		}
 	}
 }
 
@@ -666,7 +823,7 @@ void Graphics::Update() {
 	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, aspectRatio, 0.1f, 100.0f);
 	Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
-	for (uint32_t i = 0; i < kTriangleMaxCount; ++i) { 
+	for (uint32_t i = 0; i < kTriangleMaxCount; ++i) {
 		Matrix4x4 worldMatrix = MakeAffineMatrix(transform_[i].scale, transform_[i].rotate, transform_[i].translate);
 		wvpData_[i]->WVP = Multiply(worldMatrix, viewProjectionMatrix);
 	}
@@ -682,6 +839,8 @@ void Graphics::Update() {
 		Matrix4x4 worldMatrix = MakeAffineMatrix(spriteTransform_[i].scale, spriteTransform_[i].rotate, spriteTransform_[i].translate);
 		spriteWvpData_[i]->WVP = Multiply(worldMatrix, orthoMatrix);
 	}
+
+
 }
 
 void Graphics::BeginDraw()
@@ -778,6 +937,8 @@ void Graphics::Draw() {
 	commandList_->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	commandList_->SetGraphicsRootConstantBufferView(3, directionalLightResource_->GetGPUVirtualAddress());
+
 	// デスクリプタのサイズと開始ハンドルを取得
 	UINT descriptorSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPUStart = srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart();
@@ -863,7 +1024,6 @@ void Graphics::SetColor(const Vector4& color) {
 }
 
 
-// 評価課題では使わなかった
 int Graphics::LoadTexture(const std::string& filePath)
 {
 	// 1. キャッシュの確認：既に同じファイルが読み込まれている場合はそのインデックスを返す
@@ -916,18 +1076,17 @@ int Graphics::LoadTexture(const std::string& filePath)
 		WaitForSingleObject(fenceEvent_, INFINITE);
 	}
 
-	// 7. GPUでの転送が終わったので、中間リソースをその場で解放する
-	if (rawIntermediateResource) {
-		rawIntermediateResource->Release();
-	}
-
-	// 8. 次の処理のためにCommandListとCommandAllocatorをリセット
 	hr = commandAllocator_->Reset();
 	assert(SUCCEEDED(hr));
 	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
 	assert(SUCCEEDED(hr));
 
-	// 9. キャッシュに登録して、ロード数をインクリメント
+	// 7. GPUでの転送が終わったので、中間リソースをその場で解放する
+	if (rawIntermediateResource) {
+		rawIntermediateResource->Release();
+	}
+
+	// 8. キャッシュに登録して、ロード数をインクリメント
 	textureCache_[filePath] = textureCount_;
 	int returnIndex = textureCount_;
 	textureCount_++;
@@ -958,8 +1117,8 @@ void Graphics::SetSpriteTexture(int index, int textureIndex) {
 }
 
 void Graphics::SetSpriteColor(int index, const Vector4& color) {
-	if (index >= 0 && index < kSpriteMaxCount && spriteMaterialData_[index] != nullptr) {
-		*spriteMaterialData_[index] = color;
+	if (spriteMaterialData_[index] != nullptr) {
+		spriteMaterialData_[index]->color = { color.x, color.y, color.z, color.w };
 	}
 }
 
@@ -993,7 +1152,7 @@ void Graphics::DrawSprites() {
 }
 
 void Graphics::InitializeDrawSphere() {
-	// 球の分割数 (
+	// 球の分割数
 	const uint32_t kSubdivision = 16;
 	sphereVertexCount_ = kSubdivision * kSubdivision * 6;
 
@@ -1025,6 +1184,12 @@ void Graphics::InitializeDrawSphere() {
 				vtx.position.y = sin(v);
 				vtx.position.z = cos(v) * sin(u);
 				vtx.position.w = 1.0f;
+
+				// 法線を設定（単位球なので位置ベクトルがそのまま法線）
+				vtx.normal.x = cos(v) * cos(u);
+				vtx.normal.y = sin(v);
+				vtx.normal.z = cos(v) * sin(u);
+
 				// UV座標の計算
 				vtx.texcoord.x = u / (2.0f * pi);
 				vtx.texcoord.y = 1.0f - (v + pi / 2.0f) / pi;
@@ -1052,10 +1217,27 @@ void Graphics::InitializeDrawSphere() {
 	sphereWvpResource_.Attach(CreateBufferResource(device_.Get(), sizeof(TransformationMatrix)));
 	sphereWvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&sphereWvpData_));
 
+	// DirectionalLight構造体は32バイトなので、256バイトに切り上げます
+	UINT directionalLightBufferSize = (sizeof(DirectionalLight) + 255) & ~255;
+
+	// 1. バッファを作成する
+	directionalLightResource_ = CreateBufferResource(device_.Get(), directionalLightBufferSize);
+
+	// 2. CPUから書き込めるようにポインタをマッピングする
+	directionalLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
+
+	// --- この後に代入を行う ---
+	directionalLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	directionalLightData_->direction = { 0.0f, -1.0f, 1.0f };       // 斜め下奥に向かう光
+	directionalLightData_->direction.Normalize();                    // Vector3.hの関数でベクトルを正規化(長さを1に)
+	directionalLightData_->intensity = 1.0f;                        // 光の強さ（1.0で標準）
+
 	// マテリアルの作成
-	sphereMaterialResource_.Attach(CreateBufferResource(device_.Get(), sizeof(Vector4)));
+	UINT materialBufferSize = (sizeof(Material) + 255) & ~255;
+	sphereMaterialResource_ = CreateBufferResource(device_.Get(), materialBufferSize);
 	sphereMaterialResource_->Map(0, nullptr, reinterpret_cast<void**>(&sphereMaterialData_));
 	*sphereMaterialData_ = { 1.0f, 1.0f, 1.0f, 1.0f }; // 初期色は白
+	sphereMaterialData_->enableLighting = 1;
 }
 
 void Graphics::SetSphereTransform(const TransformData& transform) {
@@ -1067,19 +1249,19 @@ void Graphics::SetSphereTexture(int textureIndex) {
 }
 
 void Graphics::SetSphereColor(const Vector4& color) {
-	if (sphereMaterialData_) {
-		*sphereMaterialData_ = color;
+	if (sphereMaterialData_ != nullptr) {
+		sphereMaterialData_->color = { color.x, color.y, color.z, color.w };
 	}
 }
 
 void Graphics::DrawSphere() {
 	// WVPの計算
-	// Matrix4x4の生成関数名は適宜環境のMatrix4x4.hに合わせてください。
 	Matrix4x4 worldMatrix = MakeAffineMatrix(sphereTransform_.scale, sphereTransform_.rotate, sphereTransform_.translate);
 	Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraTransform_.rotate, cameraTransform_.translate);
 	Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
 	sphereWvpData_->WVP = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+	sphereWvpData_->World = worldMatrix;
 
 	// 描画コマンドの設定
 	commandList_->SetPipelineState(graphicsPipelineState_.Get());
@@ -1090,6 +1272,8 @@ void Graphics::DrawSphere() {
 	commandList_->SetGraphicsRootConstantBufferView(0, sphereMaterialResource_->GetGPUVirtualAddress());
 	// b1 : WVP行列
 	commandList_->SetGraphicsRootConstantBufferView(1, sphereWvpResource_->GetGPUVirtualAddress());
+	// b2 : ライト情報
+	commandList_->SetGraphicsRootConstantBufferView(3, directionalLightResource_->GetGPUVirtualAddress());
 
 	// t0 : テクスチャ
 	UINT descriptorSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
