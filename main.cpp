@@ -1,8 +1,12 @@
 #include <Windows.h>
 #include "Engine.h"
+#include "PrimitiveDrawer.h"
+#include "Sprite.h"
 #include "CommonTypes.h"
 #include "externals/imgui/imgui.h"
 #include "TriangleEffect.h" 
+#include <dxgidebug.h>
+#pragma comment(lib, "dxguid.lib")
 
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/, _In_ int nCmdShow)
@@ -21,6 +25,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		engine.Initialize(hInstance, nCmdShow);
 
 		Graphics* graphics = engine.GetGraphics();
+		// Graphicsが所有する描画クラスを借りる。生成・破棄はGraphicsが担当する。
+		PrimitiveDrawer* primitiveDrawer = graphics->GetPrimitiveDrawer();
+		Sprite* sprite = graphics->GetSprite();
 
 		Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 		TransformData transform[2] = {
@@ -34,23 +41,19 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			{ {  0.5f, -0.5f, 0.0f, 1.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } }  // 右下
 		};
 
-		graphics->LoadTexture("Resources/White.png");
+		// TextureManagerが実体を所有し、mainは返されたハンドルだけを保持する。
+		const int uvCheckerTextureHandle = graphics->LoadTexture("Resources/uvChecker.png");
+		const int monsterBallTextureHandle = graphics->LoadTexture("Resources/monsterBall.png");
+		const int whiteTextureHandle = graphics->LoadTexture("Resources/White.png");
 
-		int selectedTexture[3] = { 0, 0 ,0 };
-		const char* textureNames[] = { "uvChecker", "monsterBall" ,"White" };
-
-		TransformData zeroTransform = {
-			{0.0f, 0.0f, 0.0f},
-			{0.0f, 0.0f, 0.0f},
-			{0.0f, 0.0f, 0.0f} };
-
-		//  Graphicsクラスのマップ済み頂点バッファへデータを転送
-		graphics->SetTriangleVertices(0, vertices);
-		graphics->SetTriangleVertices(1, vertices);
-
-		// セット
-		graphics->SetTriangleTransform(0, transform[0]);
-		graphics->SetTriangleTransform(1, transform[1]);
+		// ImGuiの選択番号とTextureManagerのハンドルを明確に分ける。
+		const int textureHandles[] = {
+			uvCheckerTextureHandle,
+			monsterBallTextureHandle,
+			whiteTextureHandle
+		};
+		const char* textureNames[] = { "uvChecker", "monsterBall", "White" };
+		int selectedTriangleTexture[2] = { 0, 0 };
 
 		// スプライトの初期化
 		TransformData spriteTransform = {
@@ -60,13 +63,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		};
 		int selectedSpriteTexture = 0;
 		Vector4 spriteColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-		// セット
-		graphics->SetSpriteTransform(0, spriteTransform);
-		graphics->SetSpriteTexture(0, selectedSpriteTexture);
-		graphics->SetSpriteColor(0, spriteColor);
-
-		graphics->InitializeDrawSphere();
 
 		TransformData sphereTransform = {
 			{ 1.0f, 1.0f, 1.0f }, // Scale 
@@ -84,116 +80,87 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			// ゲーム処理 // 
 			//============//
 
-			graphics->Update();
 			transform[0].rotate.y -= 0.01f;
 			transform[1].rotate.x -= 0.01f;
 
 			//================//
 			// -- 描画処理 -- //
 			//================//
-			// 1. 描画準備
+			// 1. バックバッファをクリアし、描画コマンドの記録を開始する。
 			graphics->BeginDraw();
 
 			// 球の操作
 			ImGui::Begin("Sphere Control");
-			if (ImGui::DragFloat3("Sphere Scale", &sphereTransform.scale.x, 0.1f, 0.01f, 100.0f) ||
-				ImGui::SliderFloat3("Sphere Rotate", &sphereTransform.rotate.x, -3.1415f, 3.1415f) ||
-				ImGui::DragFloat3("Sphere Translate", &sphereTransform.translate.x, 0.1f)) {
-				graphics->SetSphereTransform(sphereTransform);
-			}
+			ImGui::DragFloat3("Sphere Scale", &sphereTransform.scale.x, 0.1f, 0.01f, 100.0f);
+			ImGui::SliderFloat3("Sphere Rotate", &sphereTransform.rotate.x, -3.1415f, 3.1415f);
+			ImGui::DragFloat3("Sphere Translate", &sphereTransform.translate.x, 0.1f);
+			ImGui::ColorEdit4("Sphere Color", &sphereColor.x);
 
-			if (ImGui::ColorEdit4("Sphere Color", &sphereColor.x)) {
-				graphics->SetSphereColor(sphereColor);
-			}
-
-			if (ImGui::Combo("Sphere Texture", &selectedSphereTexture, textureNames, _countof(textureNames))) {
-				graphics->SetSphereTexture(selectedSphereTexture);
-			}
+			ImGui::Combo("Sphere Texture", &selectedSphereTexture, textureNames, _countof(textureNames));
 			ImGui::End();
-			graphics->SetSphereTransform(sphereTransform);
 
 
 			ImGui::Begin("Sprite Control");
 
-			bool spriteChanged = false;
-			spriteChanged |= ImGui::DragFloat2("Sprite Scale (Size)", &spriteTransform.scale.x, 1.0f, 1.0f, 1280.0f);
-			spriteChanged |= ImGui::SliderFloat("Sprite Rotate Z", &spriteTransform.rotate.z, -3.1415f, 3.1415f);
-			spriteChanged |= ImGui::DragFloat2("Sprite Position", &spriteTransform.translate.x, 1.0f, 0.0f, 1280.0f);
+			ImGui::DragFloat2("Sprite Scale (Size)", &spriteTransform.scale.x, 1.0f, 1.0f, 1280.0f);
+			ImGui::SliderFloat("Sprite Rotate Z", &spriteTransform.rotate.z, -3.1415f, 3.1415f);
+			ImGui::DragFloat2("Sprite Position", &spriteTransform.translate.x, 1.0f, 0.0f, 1280.0f);
 
-			// トランスフォームに変更があったらGraphicsに通知
-			if (spriteChanged) {
-				graphics->SetSpriteTransform(0, spriteTransform);
-			}
-
-			// 色の変更
-			if (ImGui::ColorEdit4("Sprite Color", &spriteColor.x)) {
-				graphics->SetSpriteColor(0, spriteColor);
-			}
+			ImGui::ColorEdit4("Sprite Color", &spriteColor.x);
 
 			// テクスチャの変更
-			if (ImGui::Combo("Sprite Texture", &selectedSpriteTexture, textureNames, _countof(textureNames))) {
-				graphics->SetSpriteTexture(0, selectedSpriteTexture);
-			}
+			ImGui::Combo("Sprite Texture", &selectedSpriteTexture, textureNames, _countof(textureNames));
 
 			ImGui::End();
 
 			ImGui::Begin("Settings");
-			if (ImGui::ColorEdit4("Triangle Color", &color.x)) {
-				graphics->SetColor(color);
-			}
+			ImGui::ColorEdit4("Triangle Color", &color.x);
 
 			// 1つ目の三角形用のUI
 			ImGui::Separator();
 			ImGui::Text("Triangle 1 Transform");
-			if (ImGui::Combo("Texture 1", &selectedTexture[0], textureNames, _countof(textureNames))) {
-				graphics->SetTriangleTexture(0, selectedTexture[0]);
-			}
-			if (ImGui::DragFloat3("Scale 1", &transform[0].scale.x, 0.1f, 0.01f, 100.0f) ||
-				ImGui::SliderFloat3("Rotate 1", &transform[0].rotate.x, -3.1415f, 3.1415f) ||
-				ImGui::DragFloat3("Translate 1", &transform[0].translate.x, 0.1f)) {
-				graphics->SetTriangleTransform(0, transform[0]);
-			}
+			ImGui::Combo("Texture 1", &selectedTriangleTexture[0], textureNames, _countof(textureNames));
+			ImGui::DragFloat3("Scale 1", &transform[0].scale.x, 0.1f, 0.01f, 100.0f);
+			ImGui::SliderFloat3("Rotate 1", &transform[0].rotate.x, -3.1415f, 3.1415f);
+			ImGui::DragFloat3("Translate 1", &transform[0].translate.x, 0.1f);
 
 			// 2つ目の三角形用のUI
 			ImGui::Separator();
 			ImGui::Text("Triangle 2 Transform");
-			if (ImGui::Combo("Texture 2", &selectedTexture[1], textureNames, _countof(textureNames))) {
-				graphics->SetTriangleTexture(1, selectedTexture[1]);
-			}
-			if (ImGui::DragFloat3("Scale 2", &transform[1].scale.x, 0.1f, 0.01f, 100.0f) ||
-				ImGui::SliderFloat3("Rotate 2", &transform[1].rotate.x, -3.1415f, 3.1415f) ||
-				ImGui::DragFloat3("Translate 2", &transform[1].translate.x, 0.1f)) {
-				graphics->SetTriangleTransform(1, transform[1]);
-			}
+			ImGui::Combo("Texture 2", &selectedTriangleTexture[1], textureNames, _countof(textureNames));
+			ImGui::DragFloat3("Scale 2", &transform[1].scale.x, 0.1f, 0.01f, 100.0f);
+			ImGui::SliderFloat3("Rotate 2", &transform[1].rotate.x, -3.1415f, 3.1415f);
+			ImGui::DragFloat3("Translate 2", &transform[1].translate.x, 0.1f);
 
 			ImGui::End();
 
-			graphics->SetColor(color);
-			graphics->SetTriangleTexture(0, selectedTexture[0]);
-			graphics->SetTriangleTexture(1, selectedTexture[1]);
-			graphics->SetTriangleTransform(0, transform[0]);
-			graphics->SetTriangleTransform(1, transform[1]);
+			// 2. 3Dを先に描き、深度を使わないSpriteを最後に重ねる。
+			primitiveDrawer->DrawTriangle(
+				vertices, transform[0], color, textureHandles[selectedTriangleTexture[0]]);
+
+			primitiveDrawer->DrawTriangle(
+				vertices, transform[1], color, textureHandles[selectedTriangleTexture[1]]);
+
+			primitiveDrawer->DrawSphere(
+				sphereTransform, sphereColor, textureHandles[selectedSphereTexture]);
+
+			sprite->Draw(
+				spriteTransform, spriteColor, textureHandles[selectedSpriteTexture]);
 
 
-			zeroTransform = {
-				{0.0f, 0.0f, 0.0f},
-				{0.0f, 0.0f, 0.0f},
-				{0.0f, 0.0f, 0.0f} };
-
-			for (int i = 2; i < kTriangleMaxCount; ++i) {
-				graphics->SetTriangleTransform(i, zeroTransform);
-			}
-
-			// 実際のポリゴン描画
-			graphics->Draw();
-			graphics->DrawSprites();
-			graphics->DrawSphere();
-
-			// 画面フリップ
+			// 3. コマンドをGPUへ実行させ、描画済みバックバッファを画面へ表示する。
 			graphics->EndDraw();
 
 		}
 	}
+
+#ifdef _DEBUG
+	Microsoft::WRL::ComPtr<IDXGIDebug1> dxgiDebug;
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiDebug)))) {
+		// 生き残っているオブジェクトを詳細に出力ウィンドウに表示する
+		dxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+	}
+#endif
 
 	CoUninitialize();
 	return 0;

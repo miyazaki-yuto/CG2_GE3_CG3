@@ -8,7 +8,7 @@ struct Petal {
     float angle;           // 中心からの角度
     TransformData start;   // アニメーション開始時のトランスフォーム
     TransformData end;     // アニメーション終了時のトランスフォーム
-    int textureIndex;      // 使用するテクスチャのインデックス
+    TransformData current; // 現在フレームでDrawへ渡すトランスフォーム
 };
 
 
@@ -36,8 +36,8 @@ public:
     void Initialize(Graphics* graphics);
     // 更新
     void Update();
-    // 描画設定
-    void Draw();
+    // 全花弁を、引数で指定されたテクスチャを使って描画する。
+    void Draw(int textureHandle);
     // エフェクトをリセットして再生
     void Reset();
 
@@ -53,6 +53,8 @@ private:
 
 private:
     Graphics* graphics_ = nullptr;
+    PrimitiveDrawer* primitiveDrawer_ = nullptr;
+    TextureVertexData triangleVertices_[3]{};
     std::vector<Petal> petals_;
     EffectParameters params_;
     float currentTime_ = 0.0f;

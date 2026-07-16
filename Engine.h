@@ -3,8 +3,10 @@
 #include <cstdint>
 #include <memory>
 #include <fstream>
+#include "DirectXCommon.h"
 #include "Graphics.h"
 
+// ウィンドウ、メッセージループ、DirectX初期化の順序を管理するアプリケーションの土台。
 class Engine
 {
 public:
@@ -25,6 +27,8 @@ private:
 	const int32_t kWindowWidth_ = 1280;
 	const int32_t kWindowHeight_ = 720;
 
+	// シェーダーコンパイルなどの実行ログを書き出す。
 	std::ofstream logStream_;
+	std::unique_ptr<DirectXCommon> dxCommon_;
 	std::unique_ptr<Graphics> graphics_;
 };

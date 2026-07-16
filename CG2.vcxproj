@@ -94,6 +94,8 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DirectXCommon.cpp" />
+    <ClCompile Include="DX12Utility.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -119,10 +121,15 @@
     <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Matrix4x4.cpp" />
+    <ClCompile Include="PrimitiveDrawer.cpp" />
+    <ClCompile Include="Sprite.cpp" />
+    <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="TriangleEffect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="DirectXCommon.h" />
+    <ClInclude Include="DX12Utility.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
@@ -134,6 +141,9 @@
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="Matrix4x4.h" />
+    <ClInclude Include="PrimitiveDrawer.h" />
+    <ClInclude Include="Sprite.h" />
+    <ClInclude Include="TextureManager.h" />
     <ClInclude Include="TriangleEffect.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>
