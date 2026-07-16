@@ -47,6 +47,7 @@ public:
 
 private:
     static constexpr uint32_t kTriangleVertexCount = 3;
+    static constexpr uint32_t kTriangleIndexCount = 3;
     // 緯度・経度を16分割し、各マスを2枚の三角形で表す。
     static constexpr uint32_t kSphereSubdivision = 16;
 
@@ -77,6 +78,8 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> triangleVertexResource_;
     D3D12_VERTEX_BUFFER_VIEW triangleVertexBufferView_{};
     TextureVertexData* triangleVertexData_ = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> triangleIndexResource_;
+    D3D12_INDEX_BUFFER_VIEW triangleIndexBufferView_{};
 
     // 色を三角形ごとに変えられるよう、マテリアル定数バッファも個別に持つ。
     Microsoft::WRL::ComPtr<ID3D12Resource> triangleMaterialResources_[kMaxTriangleCount];
@@ -90,6 +93,9 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> sphereVertexResource_;
     D3D12_VERTEX_BUFFER_VIEW sphereVertexBufferView_{};
     uint32_t sphereVertexCount_ = 0;
+    Microsoft::WRL::ComPtr<ID3D12Resource> sphereIndexResource_;
+    D3D12_INDEX_BUFFER_VIEW sphereIndexBufferView_{};
+    uint32_t sphereIndexCount_ = 0;
     Microsoft::WRL::ComPtr<ID3D12Resource> sphereMaterialResources_[kMaxSphereCount];
     Material* sphereMaterialData_[kMaxSphereCount]{};
     Microsoft::WRL::ComPtr<ID3D12Resource> sphereWvpResources_[kMaxSphereCount];

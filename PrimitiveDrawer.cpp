@@ -85,6 +85,23 @@ void PrimitiveDrawer::CreateTriangleResources() {
         0, nullptr, reinterpret_cast<void**>(&triangleVertexData_));
     assert(SUCCEEDED(hr));
 
+    // 1枚の三角形は3頂点を0→1→2の順で参照する。
+    const size_t indexBufferSize = sizeof(uint32_t) * kTriangleIndexCount;
+    triangleIndexResource_.Attach(DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), indexBufferSize));
+    triangleIndexBufferView_.BufferLocation = triangleIndexResource_->GetGPUVirtualAddress();
+    triangleIndexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
+    triangleIndexBufferView_.Format = DXGI_FORMAT_R32_UINT;
+
+    uint32_t* indexData = nullptr;
+    hr = triangleIndexResource_->Map(
+        0, nullptr, reinterpret_cast<void**>(&indexData));
+    assert(SUCCEEDED(hr));
+    indexData[0] = 0;
+    indexData[1] = 1;
+    indexData[2] = 2;
+    triangleIndexResource_->Unmap(0, nullptr);
+
 }
 
 void PrimitiveDrawer::CreateTriangleInstanceResources(uint32_t index) {
@@ -128,8 +145,11 @@ void PrimitiveDrawer::CreateDirectionalLightResource() {
 }
 
 void PrimitiveDrawer::CreateSphereResources() {
-    // 緯度×経度の各マスを2三角形に分割するため、1マスあたり6頂点になる。
-    sphereVertexCount_ = kSphereSubdivision * kSphereSubdivision * 6;
+    // 緯度・経度の境界頂点を共有し、各四角形を6個のインデックスで2三角形にする。
+    const uint32_t verticesPerRow = kSphereSubdivision + 1;
+    sphereVertexCount_ = verticesPerRow * verticesPerRow;
+    sphereIndexCount_ = kSphereSubdivision * kSphereSubdivision * 6;
+
     const size_t vertexBufferSize = sizeof(TextureVertexData) * sphereVertexCount_;
     sphereVertexResource_.Attach(DX12Utility::CreateBufferResource(
         dxCommon_->GetDevice(), vertexBufferSize));
@@ -142,46 +162,60 @@ void PrimitiveDrawer::CreateSphereResources() {
     assert(SUCCEEDED(hr));
 
     constexpr float kPi = 3.1415926535f;
-    uint32_t index = 0;
-    // 緯度（上下）と経度（左右）を走査して単位球の頂点を生成する。
-    for (uint32_t latIndex = 0; latIndex < kSphereSubdivision; ++latIndex) {
-        const float lat = -kPi / 2.0f + kPi * latIndex / kSphereSubdivision;
-        const float nextLat = -kPi / 2.0f + kPi * (latIndex + 1.0f) / kSphereSubdivision;
-        for (uint32_t lonIndex = 0; lonIndex < kSphereSubdivision; ++lonIndex) {
-            const float lon = 2.0f * kPi * lonIndex / kSphereSubdivision;
-            const float nextLon = 2.0f * kPi * (lonIndex + 1.0f) / kSphereSubdivision;
-            // 単位球では、中心から頂点へ向かうベクトルがそのまま法線になる。
-            const auto makeVertex = [kPi](float longitude, float latitude) {
-                TextureVertexData vertex{};
-                vertex.position = {
-                    std::cos(latitude) * std::cos(longitude),
-                    std::sin(latitude),
-                    std::cos(latitude) * std::sin(longitude),
-                    1.0f
-                };
-                vertex.normal = { vertex.position.x, vertex.position.y, vertex.position.z };
-                vertex.texcoord = {
-                    longitude / (2.0f * kPi),
-                    1.0f - (latitude + kPi / 2.0f) / kPi
-                };
-                return vertex;
-            };
+    // 継ぎ目のUVを0と1の両方で持つため、経度方向は分割数+1頂点作る。
+    for (uint32_t latIndex = 0; latIndex <= kSphereSubdivision; ++latIndex) {
+        const float v = static_cast<float>(latIndex) / kSphereSubdivision;
+        const float latitude = -kPi / 2.0f + kPi * v;
 
-            const TextureVertexData a = makeVertex(lon, lat);
-            const TextureVertexData b = makeVertex(lon, nextLat);
-            const TextureVertexData c = makeVertex(nextLon, lat);
-            const TextureVertexData d = makeVertex(nextLon, nextLat);
-            vertexData[index++] = a;
-            vertexData[index++] = b;
-            vertexData[index++] = c;
-            vertexData[index++] = c;
-            vertexData[index++] = b;
-            vertexData[index++] = d;
+        for (uint32_t lonIndex = 0; lonIndex <= kSphereSubdivision; ++lonIndex) {
+            const float u = static_cast<float>(lonIndex) / kSphereSubdivision;
+            const float longitude = 2.0f * kPi * u;
+            const uint32_t vertexIndex = latIndex * verticesPerRow + lonIndex;
+
+            TextureVertexData& vertex = vertexData[vertexIndex];
+            vertex.position = {
+                std::cos(latitude) * std::cos(longitude),
+                std::sin(latitude),
+                std::cos(latitude) * std::sin(longitude),
+                1.0f
+            };
+            // 単位球では位置ベクトルをそのまま法線として使える。
+            vertex.normal = { vertex.position.x, vertex.position.y, vertex.position.z };
+            vertex.texcoord = { u, 1.0f - v };
         }
     }
-    // 球の頂点は初期化時に一度だけ書くので、ここでUnmapする。
     sphereVertexResource_->Unmap(0, nullptr);
 
+    const size_t indexBufferSize = sizeof(uint32_t) * sphereIndexCount_;
+    sphereIndexResource_.Attach(DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), indexBufferSize));
+    sphereIndexBufferView_.BufferLocation = sphereIndexResource_->GetGPUVirtualAddress();
+    sphereIndexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
+    sphereIndexBufferView_.Format = DXGI_FORMAT_R32_UINT;
+
+    uint32_t* indexData = nullptr;
+    hr = sphereIndexResource_->Map(
+        0, nullptr, reinterpret_cast<void**>(&indexData));
+    assert(SUCCEEDED(hr));
+
+    uint32_t writeIndex = 0;
+    for (uint32_t latIndex = 0; latIndex < kSphereSubdivision; ++latIndex) {
+        for (uint32_t lonIndex = 0; lonIndex < kSphereSubdivision; ++lonIndex) {
+            const uint32_t a = latIndex * verticesPerRow + lonIndex;
+            const uint32_t b = (latIndex + 1) * verticesPerRow + lonIndex;
+            const uint32_t c = a + 1;
+            const uint32_t d = b + 1;
+
+            indexData[writeIndex++] = a;
+            indexData[writeIndex++] = b;
+            indexData[writeIndex++] = c;
+            indexData[writeIndex++] = c;
+            indexData[writeIndex++] = b;
+            indexData[writeIndex++] = d;
+        }
+    }
+    assert(writeIndex == sphereIndexCount_);
+    sphereIndexResource_->Unmap(0, nullptr);
 }
 
 void PrimitiveDrawer::CreateSphereInstanceResources(uint32_t index) {
@@ -286,6 +320,7 @@ void PrimitiveDrawer::DrawTriangle(
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     SetCommonDrawState();
     commandList->IASetVertexBuffers(0, 1, &triangleVertexBufferView_);
+    commandList->IASetIndexBuffer(&triangleIndexBufferView_);
     commandList->SetGraphicsRootConstantBufferView(
         0, triangleMaterialResources_[index]->GetGPUVirtualAddress());
 
@@ -294,8 +329,13 @@ void PrimitiveDrawer::DrawTriangle(
         1, triangleWvpResources_[index]->GetGPUVirtualAddress());
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
-    commandList->DrawInstanced(
-        kTriangleVertexCount, 1, index * kTriangleVertexCount, 0);
+    // インデックスは常に0,1,2で、BaseVertexLocationで内部スロットの頂点へずらす。
+    commandList->DrawIndexedInstanced(
+        kTriangleIndexCount,
+        1,
+        0,
+        static_cast<INT>(index * kTriangleVertexCount),
+        0);
 }
 
 void PrimitiveDrawer::DrawSphere(
@@ -319,11 +359,12 @@ void PrimitiveDrawer::DrawSphere(
     SetCommonDrawState();
     // 球の頂点バッファ、b0（Material）、b1（WVP）、t0（Texture）を順にバインドする。
     commandList->IASetVertexBuffers(0, 1, &sphereVertexBufferView_);
+    commandList->IASetIndexBuffer(&sphereIndexBufferView_);
     commandList->SetGraphicsRootConstantBufferView(
         0, sphereMaterialResources_[index]->GetGPUVirtualAddress());
     commandList->SetGraphicsRootConstantBufferView(
         1, sphereWvpResources_[index]->GetGPUVirtualAddress());
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
-    commandList->DrawInstanced(sphereVertexCount_, 1, 0, 0);
+    commandList->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
 }
