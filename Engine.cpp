@@ -34,16 +34,20 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 Engine::~Engine()
 {
-	// ✅ Graphics よりも先に明示的に GPU の処理完了を待つ
+	// 依存する順に破棄する: Graphics → DirectXCommon。
 	if (graphics_) {
 		// Graphics のリソース解放前に、GPU処理の完全な完了を待つ
 		graphics_.reset();
 	}
 
+	// Graphicsが使い終わってから、DirectXの土台となるリソースを解放する。
+	if (dxCommon_) {
+		dxCommon_.reset();
+	}
+
 	// 以下のリークチェックは同じ
 	IDXGIDebug1* debug = nullptr;
-	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug))))
-	{
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
 		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
 		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
 		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
@@ -54,7 +58,7 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 {
 	OutputDebugStringA("Hello, DirectX\n");
 
-	// ログ設定
+	// ログ設定: シェーダーコンパイルなどの記録を実行ごとのファイルに残す。
 	std::filesystem::create_directories("logs");
 	auto now = std::chrono::system_clock::now();
 	auto nowSeconds = std::chrono::time_point_cast<std::chrono::seconds>(now);
@@ -62,7 +66,7 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 	std::string dateString = std::format("{:%Y%m%d_%H%M%S}", localTime);
 	logStream_.open(std::format("logs/{}.log", dateString));
 
-	// ウィンドウクラスの登録
+	// ウィンドウクラスの登録: OSがメッセージをWindowProcへ送るための設定。
 	WNDCLASS wc{};
 	wc.lpfnWndProc = WindowProc;
 	wc.lpszClassName = L"CG2WindowClass";
@@ -81,17 +85,19 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 
 	ShowWindow(hWnd_, nCmdShow);
 
-	// Graphicsクラスの初期化
-	graphics_ = std::make_unique<Graphics>();
-	graphics_->Initialize(hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
+	// DirectXCommonを先に作り、Graphicsが必要とするDevice/CommandListを用意する。
+	dxCommon_ = std::make_unique<DirectXCommon>();
+	dxCommon_->Initialize(hWnd_, kWindowWidth_, kWindowHeight_);
 
-	graphics_->InitializeDrawSprite();
+	// GraphicsはDirectXCommonを借りて、PSO・テクスチャ・描画クラスを初期化する。
+	graphics_ = std::make_unique<Graphics>();
+	graphics_->Initialize(dxCommon_.get(), hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
 }
 
 bool Engine::ProcessMessage()
 {
 	MSG msg{};
-	// メッセージがある限りループして処理
+	// メッセージがある限り処理する。メッセージがない場合はすぐ戻り、ゲーム更新・描画を続ける。
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 	{
 		// ウィンドウの×ボタンなどが押され、終了メッセージが来たら false を返す
@@ -108,6 +114,7 @@ bool Engine::ProcessMessage()
 
 LONG WINAPI Engine::ExportDump(EXCEPTION_POINTERS* exception)
 {
+	// 予期しない例外時に.dmpを作成し、後からVisual Studioで原因を追跡できるようにする。
 	SYSTEMTIME time;
 	GetLocalTime(&time);
 	wchar_t filePath[MAX_PATH] = { 0 };

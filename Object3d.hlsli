@@ -1,5 +1,5 @@
 
-// 頂点シェーダーへの入力
+// C++側のTextureVertexDataと同じ並びで受け取る、頂点シェーダーへの入力。
 struct VertexShaderInput
 {
     float4 position : POSITION0;
@@ -7,7 +7,7 @@ struct VertexShaderInput
     float3 normal : NORMAL0; // 頂点バッファから法線を受け取る
 };
 
-// 頂点シェーダーからの出力
+// 頂点シェーダーからピクセルシェーダーへ補間して渡すデータ。
 struct VertexShaderOutput
 {
     float4 position : SV_POSITION;
@@ -22,7 +22,7 @@ struct DirectionalLight
     float intensity;
 };
 
-// 定数バッファ b0 をマテリアル用とする
+// b0: 描画物ごとの色と、ライティングの有効／無効。
 cbuffer MaterialBuffer : register(b0)
 {
     float4 gMaterialColor;
@@ -31,5 +31,6 @@ cbuffer MaterialBuffer : register(b0)
 
 cbuffer LightBuffer : register(b2)
 {
+    // b2: PrimitiveDrawerが設定する、全3D形状で共有の平行光源。
     DirectionalLight gDirectionalLight;
 }

@@ -1,182 +1,74 @@
 #pragma once
+
+#include <Windows.h>
 #include <d3d12.h>
-#include <dxgi1_6.h>
-#include <wrl.h> // ComPtr用
-#include "Matrix4x4.h"
-#include "CommonTypes.h"
+#include <wrl.h>
+
 #include <cstdint>
 #include <fstream>
-#include <unordered_map>
-#include <vector>
+#include <memory>
+#include <string>
 
-#include <dxcapi.h>
-#pragma comment(lib,"dxcompiler.lib")
+class DirectXCommon;
+class PrimitiveDrawer;
+class Sprite;
+class TextureManager;
 
-#pragma comment(lib, "d3d12.lib")
-#pragma comment(lib, "dxgi.lib")
-
-const uint32_t kTriangleMaxCount = 1000;
-const uint32_t kSpriteMaxCount = 1000;
-
-class Graphics
-{
+// 描画機能全体の窓口。
+// 共通パイプラインと各描画クラスの生成順・破棄順だけを管理する。
+class Graphics {
 public:
-	Graphics() = default;
-	~Graphics();
+    // unique_ptrの対象を前方宣言にするため、コンストラクタ／デストラクタは.cppで定義する。
+    Graphics();
+    ~Graphics();
 
-	void WaitForGpu();
+    Graphics(const Graphics&) = delete;
+    Graphics& operator=(const Graphics&) = delete;
 
-	// DirectXの初期化
-	void Initialize(HWND hWnd, int32_t width, int32_t height, std::ofstream& logStream);
+    // DirectXCommonが用意したDevice/CommandListを使って描画機能を初期化する。
+    void Initialize(
+        DirectXCommon* dxCommon,
+        HWND hWnd,
+        int32_t width,
+        int32_t height,
+        std::ofstream& logStream);
 
-	// スプライトの描画に必要な初期化
-	void InitializeDrawSprite();
+    // 1フレームの描画開始・終了。
+    void BeginDraw();
+    void EndDraw();
 
-	// フレーム計算用
-	void Update();
+    // 読み込んだテクスチャを指定するための番号を返す。
+    int LoadTexture(const std::string& filePath);
 
-	// 描画開始
-	void BeginDraw();
-	// 描画終了
-	void EndDraw();
-
-	// --- Triangle用の描画関数 ---
-	// mainからデータを渡すための関数たち
-	void SetTriangleVertices(int index, const TextureVertexData* vertices);
-	void SetTriangleTransform(int index, const TransformData& transform);
-	void SetTriangleTexture(int index, int textureIndex);
-	void SetColor(const Vector4& color);
-	void Draw();
-
-	// --- Sprite用の描画関数 ---
-	// Sprite用の頂点データを設定
-	void SetSpriteVertices(int index, const TextureVertexData* vertices);
-	// Sprite用のTransformを設定
-	void SetSpriteTransform(int index, const TransformData& transform);
-	// Sprite用のテクスチャを設定
-	void SetSpriteTexture(int index, int textureIndex);
-	// Spriteの色を設定
-	void SetSpriteColor(int index, const Vector4& color);
-
-	// Spriteを描画する
-	void DrawSprites();
-
-	// --- Sphere用の描画関数 ---
-	// 初期化
-	void InitializeDrawSphere();
-	// トランスフォームの設定
-	void SetSphereTransform(const TransformData& transform);
-	// テクスチャの設定
-	void SetSphereTexture(int textureIndex);
-	// 色の設定
-	void SetSphereColor(const Vector4& color);
-	// 描画
-	void DrawSphere();
-
-	// 画像読み込み
-	int LoadTexture(const std::string& filePath);
-
+    // 所有権はGraphicsにある。呼び出し側はポインタをdeleteしない。
+    TextureManager* GetTextureManager() const { return textureManager_.get(); }
+    Sprite* GetSprite() const { return sprite_.get(); }
+    PrimitiveDrawer* GetPrimitiveDrawer() const { return primitiveDrawer_.get(); }
 
 private:
+    // Initializeを処理の目的ごとに分け、初期化順を読みやすくする。
+    void CreateRootSignature(std::ofstream& logStream);
+    void CreateGraphicsPipelines(std::ofstream& logStream);
+    void CreateRenderers(uint32_t width, uint32_t height);
 
-	void InitializeImGui(HWND hwnd);
-	void ShutdownImGui();
-	void CleanupResources();
+    // ImGuiはTextureManagerのSRVヒープ先頭1枠を使用する。
+    void InitializeImGui(HWND hWnd);
+    void ShutdownImGui();
+    void CleanupResources();
+    void WaitForGpu();
 
-	// ComPtrを使用して自動解放を行う
-	Microsoft::WRL::ComPtr<ID3D12Device> device_;
-	Microsoft::WRL::ComPtr<IDXGIFactory7> dxgiFactory_;
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue_;
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator_;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList_;
-	Microsoft::WRL::ComPtr<IDXGISwapChain4> swapChain_;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvDescriptorHeap_;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> srvDescriptorHeap_;
-	Microsoft::WRL::ComPtr<ID3D12Resource> swapChainResources_[2];
-	Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
+    // 所有しない参照。EngineがGraphicsより長く生存させる。
+    DirectXCommon* dxCommon_ = nullptr;
 
-	HANDLE fenceEvent_ = nullptr;
-	uint64_t fenceValue_ = 0;
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2]{};
+    // ルートシグネチャは共有するが、深度・カリング・ブレンド設定は描画用途別に分ける。
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> object3dPipelineState_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> spritePipelineState_;
 
-	Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils_;
-	Microsoft::WRL::ComPtr<IDxcCompiler3> dxcCompiler_;
-	Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler_;
+    // 生成順・破棄順をGraphicsが管理する描画関連クラス。
+    std::unique_ptr<TextureManager> textureManager_;
+    std::unique_ptr<PrimitiveDrawer> primitiveDrawer_;
+    std::unique_ptr<Sprite> sprite_;
 
-	Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob_;
-	Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob_;
-
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState_;
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
-
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-
-	D3D12_VIEWPORT viewport_{};
-	D3D12_RECT scissorRect_{};
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-	Microsoft::WRL::ComPtr<ID3D12Resource> wvpResource_[kTriangleMaxCount];
-
-	TransformationMatrix* wvpData_[kTriangleMaxCount] = { nullptr, nullptr };
-	TransformData transform_[kTriangleMaxCount];
-	TransformData cameraTransform_;
-
-	Vector4 color_ = { 1.0f, 1.0f, 1.0f, 1.0f }; // ImGuiで変更する色を保持する変数
-	Vector4* materialData_ = nullptr;            // GPUに書き込むためのポインタ
-
-	int selectedTexture_[kTriangleMaxCount] = { 0, 0 };
-
-	// zバッファ(深度バッファ)用
-	Microsoft::WRL::ComPtr<ID3D12Resource> depthBuffer_;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_;
-
-	// マップ（紐付け）されたGPUの頂点バッファのアドレスを保持しておくためのポインタ
-	TextureVertexData* mappedVertexData_ = nullptr;
-
-
-	// テクスチャを複数保持するための配列とカウン
-	static const size_t kMaxTextures = 10; // 最大10枚まで読み込めるようにする
-	Microsoft::WRL::ComPtr<ID3D12Resource> textureResources_[kMaxTextures];
-	uint32_t textureCount_ = 0;            // 現在ロード済みのテクスチャ数
-
-	// テクスチャの重複読み込みを防ぐキャッシュ
-	std::unordered_map<std::string, int> textureCache_;
-
-	// --- Sprite用のリソース ---
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> spritePipelineState_;
-	Microsoft::WRL::ComPtr<ID3D12Resource> spriteVertexResource_;
-	D3D12_VERTEX_BUFFER_VIEW spriteVertexBufferView_{};
-	TextureVertexData* mappedSpriteVertexData_ = nullptr;
-
-	// Sprite用のWVP行列(正投影)
-	Microsoft::WRL::ComPtr<ID3D12Resource> spriteWvpResource_[kSpriteMaxCount];
-	TransformationMatrix* spriteWvpData_[kSpriteMaxCount] = { nullptr };
-	TransformData spriteTransform_[kSpriteMaxCount];
-
-	// Sprite用のマテリアル(色)
-	Microsoft::WRL::ComPtr<ID3D12Resource> spriteMaterialResource_[kSpriteMaxCount];
-	Material* spriteMaterialData_[kSpriteMaxCount] = { nullptr };
-
-	int spriteSelectedTexture_[kSpriteMaxCount] = { 0 };
-
-	// --- Sphere用のリソース ---
-	Microsoft::WRL::ComPtr<ID3D12Resource> sphereVertexResource_;
-	D3D12_VERTEX_BUFFER_VIEW sphereVertexBufferView_{};
-	uint32_t sphereVertexCount_ = 0;
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> sphereWvpResource_;
-	TransformationMatrix* sphereWvpData_ = nullptr;
-	TransformData sphereTransform_ = { {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> sphereMaterialResource_;
-	Material* sphereMaterialData_ = nullptr;
-
-	int sphereSelectedTexture_ = 0;
-
-	// ライト用リソース
-	Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
-	DirectionalLight* directionalLightData_ = nullptr;
+    bool isImGuiInitialized_ = false;
 };

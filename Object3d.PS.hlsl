@@ -1,5 +1,6 @@
 #include "Object3d.hlsli"
 
+// t0はTextureManagerが選んだ画像、s0はGraphicsが固定で用意したサンプラー。
 Texture2D<float4> gTexture : register(t0);
 SamplerState gSampler : register(s0);
 
@@ -10,7 +11,7 @@ float4 main(VertexShaderOutput input) : SV_TARGET
     
     float4 finalColor;
     
-    // ライティングを有効にする場合 (3Dオブジェクトなど)
+    // ライティングを有効にする場合（3Dオブジェクトなど）。
     if (gEnableLighting != 0)
     {
         float3 normal = normalize(input.normal);
@@ -29,7 +30,7 @@ float4 main(VertexShaderOutput input) : SV_TARGET
         // アルファ値はテクスチャとマテリアルのものをそのまま使う
         finalColor.a = textureColor.a * gMaterialColor.a;
     }
-    // ライティングを無効にする場合 (Spriteなど)
+    // ライティングを無効にする場合（Spriteなど）。
     else
     {
         // 陰影をつけず、テクスチャカラーとマテリアルカラーをそのまま出力

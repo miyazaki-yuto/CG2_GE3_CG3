@@ -1,11 +1,13 @@
 #define _USE_MATH_DEFINES
 #define NOMINMAX
 #include "TriangleEffect.h"
+#include "PrimitiveDrawer.h"
 #include <cmath>
 #include <algorithm>
 
 void TriangleEffect::Initialize(Graphics* graphics) {
     graphics_ = graphics;
+    primitiveDrawer_ = graphics_->GetPrimitiveDrawer();
 
     params_.numPetals = 100;                 // 破片の数
     params_.duration = 0.8f;                 // 展開を素早く
@@ -28,11 +30,14 @@ void TriangleEffect::SetParameters(const EffectParameters& params) {
     petals_.resize(num);
 
     // 三角形をとげみたいにしとく
-    TextureVertexData vertices[3] = {
+    const TextureVertexData vertices[3] = {
         { {  0.0f,  1.0f, 0.0f, 1.0f }, { 0.5f, 0.0f } },  // 鋭い先端
         { { -0.15f, -0.4f, 0.0f, 1.0f }, { 0.0f, 1.0f } }, // 細い底辺左
         { {  0.15f, -0.4f, 0.0f, 1.0f }, { 1.0f, 1.0f } }  // 細い底辺右
     };
+    for (uint32_t i = 0; i < 3; ++i) {
+        triangleVertices_[i] = vertices[i];
+    }
 
     // 球状配置による立体計算
     float phi = (float)M_PI * (3.0f - std::sqrt(5.0f));
@@ -62,9 +67,8 @@ void TriangleEffect::SetParameters(const EffectParameters& params) {
 
         // 各破片が外側を向くように初期回転を設定
         p.end.rotate = { (float)std::acos(y), p.angle, 0.0f };
+        p.current = p.start;
 
-        p.textureIndex = 1;
-        graphics_->SetTriangleVertices(i, vertices);
     }
 }
 
@@ -122,14 +126,18 @@ void TriangleEffect::Update() {
             }
         }
 
-        graphics_->SetTriangleTransform((int)i, current);
+        // GPUへの反映はDrawで行うため、Updateでは現在値だけを保存する。
+        p.current = current;
     }
 }
 
-void TriangleEffect::Draw() {
-    graphics_->SetColor(params_.color);
+void TriangleEffect::Draw(int textureHandle) {
     for (size_t i = 0; i < petals_.size(); ++i) {
-        graphics_->SetTriangleTexture((int)i, petals_[i].textureIndex);
+        primitiveDrawer_->DrawTriangle(
+            triangleVertices_,
+            petals_[i].current,
+            params_.color,
+            textureHandle);
     }
 }
 
