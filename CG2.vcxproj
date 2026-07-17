@@ -58,7 +58,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>xaudio2.lib;xinput.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>$(ProjectDir)externals\DirectXTex\DirectXTex\Bin\Desktop_2022\x64\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -85,7 +85,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>xaudio2.lib;xinput.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalLibraryDirectories>$(ProjectDir)externals\DirectXTex\DirectXTex\Bin\Desktop_2022\x64\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -122,6 +122,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Graphics.cpp" />
+    <ClCompile Include="InputManager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Matrix4x4.cpp" />
     <ClCompile Include="Model.cpp" />
@@ -145,6 +146,7 @@
     <ClInclude Include="externals\imgui\imstb_textedit.h" />
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics.h" />
+    <ClInclude Include="InputManager.h" />
     <ClInclude Include="Matrix4x4.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="PrimitiveDrawer.h" />
