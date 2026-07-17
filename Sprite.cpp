@@ -33,15 +33,31 @@ void Sprite::Initialize(
     // 0〜1の単位矩形をCPU側のひな形として保持する。
     // Draw時にフレーム専用Upload領域へコピーするため、GPU使用中の頂点を上書きしない。
     const TextureVertexData defaultVertices[kVertexCount] = {
+        // 0:左下、1:左上、2:右下、3:右上。
+        // 2枚の三角形で重なる頂点を、インデックスバッファによって共有する。
         { { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
         { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
         { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-        { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
         { { 1.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-        { { 1.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
     };
     SetVertices(defaultVertices);
+    CreateIndexBufferResource();
 
+}
+
+void Sprite::CreateIndexBufferResource() {
+    // 三角形1は0→1→2、三角形2は1→3→2の順で頂点を参照する。
+    const uint32_t indices[kIndexCount] = { 0, 1, 2, 1, 3, 2 };
+    const size_t indexBufferSize = sizeof(indices);
+
+    // 描画中に変化しないので、GPUが読みやすいDEFAULTヒープへ初期化時に転送する。
+    indexResource_ = dxCommon_->CreateStaticBufferResource(
+        indices,
+        indexBufferSize,
+        D3D12_RESOURCE_STATE_INDEX_BUFFER);
+    indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
+    indexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
+    indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
 }
 
 void Sprite::Resize(uint32_t windowWidth, uint32_t windowHeight) {
@@ -129,6 +145,7 @@ void Sprite::Draw(
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
     commandList->SetPipelineState(pipelineState_.Get());
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+    commandList->IASetIndexBuffer(&indexBufferView_);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // b0=Material、b1=WVP、t0=Texture の対応でシェーダーへデータを渡す。
@@ -141,5 +158,6 @@ void Sprite::Draw(
     commandList->SetGraphicsRootConstantBufferView(
         3, lightingManager_->GetDirectionalLightGpuAddress());
 
-    commandList->DrawInstanced(kVertexCount, 1, 0, 0);
+    // 4頂点を6個のインデックスで参照し、2枚の三角形として描画する。
+    commandList->DrawIndexedInstanced(kIndexCount, 1, 0, 0, 0);
 }

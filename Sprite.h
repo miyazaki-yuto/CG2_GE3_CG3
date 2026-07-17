@@ -35,7 +35,7 @@ public:
     // Graphics::BeginDrawから呼び、今フレームの自動採番を0に戻す。
     void BeginFrame();
 
-    // 頂点形状を差し替える場合だけ使用する。通常は初期化時の四角形を使う。
+    // 4つの頂点形状を差し替える場合だけ使用する。通常は初期化時の四角形を使う。
     void SetVertices(const TextureVertexData* vertices);
 
     // 描画に必要な座標・色・テクスチャ・UV変換を、Drawの引数だけで指定する。
@@ -46,9 +46,12 @@ public:
         const UVTransform& uvTransform);
 
 private:
-    // インデックスバッファを使わず、四角形を2枚の三角形で表現する。
-    static constexpr UINT kVertexCount = 6;
+    // 四角形は4頂点を共有し、6インデックスで2枚の三角形として描画する。
+    static constexpr UINT kVertexCount = 4;
+    static constexpr UINT kIndexCount = 6;
     static constexpr uint32_t kMaxSpriteCount = 1000;
+
+    void CreateIndexBufferResource();
 
     DirectXCommon* dxCommon_ = nullptr;
     LightingManager* lightingManager_ = nullptr;
@@ -60,6 +63,10 @@ private:
 
     // 頂点のひな形はCPU側に保持し、Draw時に安全なフレーム用領域へコピーする。
     TextureVertexData vertices_[kVertexCount]{};
+
+    // 全Spriteで同じ並びを使うため、インデックスは1つの静的GPUバッファを共有する。
+    Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_;
+    D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
 
     uint32_t windowWidth_ = 0;
     uint32_t windowHeight_ = 0;
