@@ -2,6 +2,7 @@
 
 #include "DX12Utility.h"
 #include "DirectXCommon.h"
+#include "Model.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
 #include "TextureManager.h"
@@ -56,6 +57,8 @@ void Graphics::Initialize(
     assert(width > 0 && height > 0);
 
     dxCommon_ = dxCommon;
+    windowWidth_ = static_cast<uint32_t>(width);
+    windowHeight_ = static_cast<uint32_t>(height);
     DX12Utility::Log(logStream, "Begin Graphics initialization.");
 
     // 全描画クラスとImGuiが共有するSRVヒープを最初に用意する。
@@ -354,4 +357,26 @@ int Graphics::LoadTexture(const std::string& filePath) {
     assert(textureManager_ != nullptr);
     return textureManager_->LoadTexture(
         filePath, dxCommon_->GetCommandList());
+}
+
+std::unique_ptr<Model> Graphics::CreateModel(const std::string& objFilePath) {
+    assert(dxCommon_ != nullptr);
+    assert(textureManager_ != nullptr);
+    assert(rootSignature_ != nullptr);
+    assert(object3dPipelineState_ != nullptr);
+
+    auto model = std::make_unique<Model>();
+    if (!model->Initialize(
+        dxCommon_,
+        textureManager_.get(),
+        rootSignature_.Get(),
+        object3dPipelineState_.Get(),
+        windowWidth_,
+        windowHeight_,
+        objFilePath)) {
+        const std::string message = model->GetLastError() + "\n";
+        OutputDebugStringA(message.c_str());
+        return nullptr;
+    }
+    return model;
 }
