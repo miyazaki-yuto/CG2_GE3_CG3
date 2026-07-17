@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include "Engine.h"
+#include "AudioManager.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
 #include "Model.h"
@@ -29,6 +30,18 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		// Graphicsが所有する描画クラスを借りる。生成・破棄はGraphicsが担当する。
 		PrimitiveDrawer* primitiveDrawer = graphics->GetPrimitiveDrawer();
 		Sprite* sprite = graphics->GetSprite();
+		AudioManager* audioManager = engine.GetAudioManager();
+
+		// BGMはゲーム側がハンドルを所有し、起動時にループ再生する。
+		float bgmVolume = 0.25f;
+		int bgmHandle = -1;
+		if (audioManager != nullptr) {
+			bgmHandle = audioManager->LoadWave("Resources/bgm.wav");
+			if (bgmHandle >= 0) {
+				audioManager->SetVolume(bgmHandle, bgmVolume);
+				audioManager->Play(bgmHandle, true);
+			}
+		}
 
 		Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 		TransformData transform[2] = {
@@ -115,6 +128,38 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			//================//
 			// 1. バックバッファをクリアし、描画コマンドの記録を開始する。
 			graphics->BeginDraw();
+
+			// XAudio2で再生中のBGMをImGuiから操作する。
+			ImGui::Begin("Sound Control");
+			if (audioManager != nullptr && bgmHandle >= 0) {
+				if (ImGui::SliderFloat("BGM Volume", &bgmVolume, 0.0f, 1.0f)) {
+					audioManager->SetVolume(bgmHandle, bgmVolume);
+				}
+
+				if (ImGui::Button("Play from Start")) {
+					audioManager->Play(bgmHandle, true);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Pause")) {
+					audioManager->Pause(bgmHandle);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Resume")) {
+					audioManager->Resume(bgmHandle);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Stop")) {
+					audioManager->Stop(bgmHandle);
+				}
+
+				const char* soundState = audioManager->IsPaused(bgmHandle)
+					? "Paused"
+					: (audioManager->IsPlaying(bgmHandle) ? "Playing" : "Stopped");
+				ImGui::Text("State: %s", soundState);
+			} else {
+				ImGui::TextUnformatted("BGM could not be loaded.");
+			}
+			ImGui::End();
 
 			// 球の操作
 			ImGui::Begin("Sphere Control");

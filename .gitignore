@@ -369,3 +369,5 @@ FodyWeavers.xsd
 Dumps/
 
 imgui.ini
+
+!resources/**/*.obj

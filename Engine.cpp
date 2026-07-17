@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "AudioManager.h"
 #include <filesystem>
 #include <chrono>
 #include <format>
@@ -34,6 +35,9 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 Engine::~Engine()
 {
+	// SourceVoiceを先に止めてから、描画関連とDirectX 12を破棄する。
+	audioManager_.reset();
+
 	// 依存する順に破棄する: Graphics → DirectXCommon。
 	if (graphics_) {
 		// Graphics のリソース解放前に、GPU処理の完全な完了を待つ
@@ -91,6 +95,13 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 	// GraphicsはDirectXCommonを借りて、PSO・テクスチャ・描画クラスを初期化する。
 	graphics_ = std::make_unique<Graphics>();
 	graphics_->Initialize(dxCommon_.get(), hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
+
+	// XAudio2はDirectX 12とは独立したシステムだが、Engineが寿命をまとめて管理する。
+	audioManager_ = std::make_unique<AudioManager>();
+	if (!audioManager_->Initialize()) {
+		OutputDebugStringA((audioManager_->GetLastError() + "\n").c_str());
+		audioManager_.reset();
+	}
 }
 
 bool Engine::ProcessMessage()
