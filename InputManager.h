@@ -1,6 +1,11 @@
 #pragma once
 
 #include <Windows.h>
+#ifndef DIRECTINPUT_VERSION
+#define DIRECTINPUT_VERSION 0x0800
+#endif
+#include <dinput.h>
+#include <wrl.h>
 #include <Xinput.h>
 
 #include <array>
@@ -20,12 +25,12 @@ struct GamepadStick {
     float y;
 };
 
-// キーボード・マウス・XInputゲームパッドの現在値と前フレーム値を管理する。
+// DirectInputキーボード・マウスと、XInputゲームパッドの状態を管理する。
 // Pressed=押している間、Triggered=押した瞬間、Released=離した瞬間。
 class InputManager {
 public:
     InputManager() = default;
-    ~InputManager() = default;
+    ~InputManager();
 
     InputManager(const InputManager&) = delete;
     InputManager& operator=(const InputManager&) = delete;
@@ -34,9 +39,6 @@ public:
 
     // Engine::ProcessMessageから1フレームに1回呼ぶ。
     void Update();
-
-    // WM_MOUSEWHEELなど、ポーリングだけでは取れない入力をWindowProcから受け取る。
-    void HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
 
     bool IsKeyPressed(int virtualKey) const;
     bool IsKeyTriggered(int virtualKey) const;
@@ -47,7 +49,9 @@ public:
     bool IsMouseReleased(MouseButton button) const;
     POINT GetMousePosition() const { return currentMousePosition_; }
     POINT GetMouseDelta() const;
-    int GetMouseWheelDelta() const { return mouseWheelDelta_; }
+    int GetMouseWheelDelta() const {
+        return static_cast<int>(currentMouse_.lZ);
+    }
 
     bool IsGamepadConnected() const { return isGamepadConnected_; }
     bool IsGamepadButtonPressed(WORD button) const;
@@ -59,22 +63,30 @@ public:
     float GetRightTrigger() const;
 
 private:
-    static bool IsKeyboardStateDown(BYTE state);
-    static int MouseButtonToVirtualKey(MouseButton button);
+    bool ReadDeviceState(
+        IDirectInputDevice8* device,
+        DWORD dataSize,
+        void* destination);
+    static bool IsDirectInputStateDown(BYTE state);
+    static bool IsVirtualKeyDown(
+        const std::array<BYTE, 256>& keyboardState,
+        int virtualKey);
+    static int VirtualKeyToDirectInputKey(int virtualKey);
+    static size_t MouseButtonToIndex(MouseButton button);
     static float NormalizeThumbStick(SHORT value, SHORT deadZone);
     static float NormalizeTrigger(BYTE value);
-    bool IsValidVirtualKey(int virtualKey) const;
-
     HWND hWnd_ = nullptr;
-    bool isWindowActive_ = true;
 
+    // DirectInput本体と、システムキーボード／マウスを表すデバイス。
+    Microsoft::WRL::ComPtr<IDirectInput8> directInput_;
+    Microsoft::WRL::ComPtr<IDirectInputDevice8> keyboardDevice_;
+    Microsoft::WRL::ComPtr<IDirectInputDevice8> mouseDevice_;
     std::array<BYTE, 256> currentKeyboard_{};
     std::array<BYTE, 256> previousKeyboard_{};
 
+    DIMOUSESTATE2 currentMouse_{};
+    DIMOUSESTATE2 previousMouse_{};
     POINT currentMousePosition_{};
-    POINT previousMousePosition_{};
-    int pendingMouseWheelDelta_ = 0;
-    int mouseWheelDelta_ = 0;
 
     XINPUT_STATE currentGamepad_{};
     XINPUT_STATE previousGamepad_{};

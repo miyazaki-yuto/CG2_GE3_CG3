@@ -6,7 +6,7 @@
 
 class DirectXCommon;
 
-// シーンで共有する平行光源を1か所で管理するクラス。
+// シーンで共有するSunとPoint Lightを1か所で管理するクラス。
 // Primitive・Model・Spriteが個別に同じ定数バッファを作る必要をなくす。
 class LightingManager {
 public:
@@ -18,20 +18,24 @@ public:
 
     void Initialize(DirectXCommon* dxCommon);
 
-    // 現在フレーム専用の定数領域へ、CPU側で保持しているライト値を1回だけコピーする。
+    // フレーム開始時に、前フレームのGPUアドレスを無効化する。
     void BeginFrame();
 
-    void SetDirectionalLight(const DirectionalLight& light) {
-        directionalLight_ = light;
-    }
+    void SetDirectionalLight(const DirectionalLight& light);
     const DirectionalLight& GetDirectionalLight() const {
-        return directionalLight_;
+        return lightingData_.directionalLight;
     }
 
-    D3D12_GPU_VIRTUAL_ADDRESS GetDirectionalLightGpuAddress() const;
+    void SetPointLight(const PointLight& light);
+    const PointLight& GetPointLight() const {
+        return lightingData_.pointLight;
+    }
+
+    // 最初のDraw時に現在値をGPUへコピーし、同一フレーム中は同じアドレスを共有する。
+    D3D12_GPU_VIRTUAL_ADDRESS GetLightingGpuAddress();
 
 private:
     DirectXCommon* dxCommon_ = nullptr;
-    DirectionalLight directionalLight_{};
-    D3D12_GPU_VIRTUAL_ADDRESS directionalLightGpuAddress_ = 0;
+    LightingData lightingData_{};
+    D3D12_GPU_VIRTUAL_ADDRESS lightingGpuAddress_ = 0;
 };

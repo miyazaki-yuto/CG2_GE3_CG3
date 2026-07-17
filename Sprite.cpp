@@ -156,7 +156,7 @@ void Sprite::Draw(
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
     commandList->SetGraphicsRootConstantBufferView(
-        3, lightingManager_->GetDirectionalLightGpuAddress());
+        3, lightingManager_->GetLightingGpuAddress());
 
     // 4頂点を6個のインデックスで参照し、2枚の三角形として描画する。
     commandList->DrawIndexedInstanced(kIndexCount, 1, 0, 0, 0);

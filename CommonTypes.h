@@ -1,6 +1,8 @@
 #pragma once
 #include "Matrix4x4.h" 
 
+#include <cstdint>
+
 struct Vector2 {
     float x;
     float y;
@@ -71,4 +73,29 @@ struct DirectionalLight
     Color4 color;
     Vector3 direction;
     float intensity;
+    int32_t enabled;
+    float padding[3];
 };
+
+// BlenderのPoint Lightに相当する、ワールド座標上へ配置できる点光源。
+struct PointLight
+{
+    Color4 color;
+    Vector3 position;
+    float intensity;
+    float radius;      // 光が届く最大距離
+    float decay;       // 距離による減衰カーブ。大きいほど急に暗くなる
+    int32_t enabled;
+    float padding;
+};
+
+// b2へまとめて渡す、シーン共通のライトデータ。
+struct LightingData
+{
+    DirectionalLight directionalLight;
+    PointLight pointLight;
+};
+
+static_assert(sizeof(DirectionalLight) == 48);
+static_assert(sizeof(PointLight) == 48);
+static_assert(sizeof(LightingData) == 96);

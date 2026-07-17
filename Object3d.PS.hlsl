@@ -4,6 +4,13 @@
 Texture2D<float4> gTexture : register(t0);
 SamplerState gSampler : register(s0);
 
+// Half-Lambertを共通関数にし、SunとPoint Lightの両方で同じ陰影を使う。
+float CalculateHalfLambert(float3 normal, float3 lightDirection)
+{
+    float halfLambert = saturate(dot(normal, lightDirection) * 0.5f + 0.5f);
+    return halfLambert * halfLambert;
+}
+
 float4 main(VertexShaderOutput input) : SV_TARGET
 {
     // 元のUVを拡大縮小・回転・平行移動してからテクスチャを読み取る。
@@ -17,22 +24,44 @@ float4 main(VertexShaderOutput input) : SV_TARGET
     if (gEnableLighting != 0)
     {
         float3 normal = normalize(input.normal);
-        
-        // 2. ライトの方向を逆向きにする (表面から光源に向かうベクトルにするため)
-        float3 lightDirection = normalize(-gDirectionalLight.direction);
-        
-        // 3. Half-Lambert反射の計算
-        // 通常のLambertは内積が0以下になると急に真っ黒になる。
-        // Half-Lambertでは -1～1 の内積を 0～1 へ移し、陰側にも滑らかな明るさを残す。
-        float NdotL = dot(normal, lightDirection);
-        float halfLambert = saturate(NdotL * 0.5f + 0.5f);
 
-        // 二乗すると明るい面と暗い面の差が適度に戻り、立体感を保ちやすい。
-        halfLambert *= halfLambert;
-        
-        // 4. 光の強さと色を掛け合わせる
-        // テクスチャの色 * マテリアルの色 * ライトの色 * ライトの強度 * Half-Lambert係数
-        finalColor.rgb = textureColor.rgb * gMaterialColor.rgb * gDirectionalLight.color.rgb * gDirectionalLight.intensity * halfLambert;
+        // 複数ライトの寄与を加算してから、テクスチャとマテリアルの色へ掛ける。
+        float3 accumulatedLight = float3(0.0f, 0.0f, 0.0f);
+
+        if (gDirectionalLight.enabled != 0)
+        {
+            // Sunは位置を持たず、全ての場所へ同じ方向から光が届く。
+            float3 sunDirection = normalize(-gDirectionalLight.direction);
+            float sunDiffuse = CalculateHalfLambert(normal, sunDirection);
+            accumulatedLight +=
+                gDirectionalLight.color.rgb *
+                gDirectionalLight.intensity *
+                sunDiffuse;
+        }
+
+        if (gPointLight.enabled != 0)
+        {
+            // ピクセルからPoint Lightへ向かうベクトルを求める。
+            float3 toLight = gPointLight.position - input.worldPosition;
+            float distanceToLight = length(toLight);
+            float3 pointDirection = toLight / max(distanceToLight, 0.0001f);
+
+            // radiusの外側では0。内側ではdecayに応じて滑らかに減衰させる。
+            float normalizedDistance = distanceToLight / max(gPointLight.radius, 0.0001f);
+            float attenuation = pow(
+                saturate(1.0f - normalizedDistance),
+                max(gPointLight.decay, 0.0001f));
+            float pointDiffuse = CalculateHalfLambert(normal, pointDirection);
+
+            accumulatedLight +=
+                gPointLight.color.rgb *
+                gPointLight.intensity *
+                pointDiffuse *
+                attenuation;
+        }
+
+        finalColor.rgb =
+            textureColor.rgb * gMaterialColor.rgb * accumulatedLight;
         
         // アルファ値はテクスチャとマテリアルのものをそのまま使う
         finalColor.a = textureColor.a * gMaterialColor.a;

@@ -21,6 +21,8 @@ VertexShaderOutput main(VertexShaderInput input)
     // 座標をWVP行列でスクリーン空間に変換
     output.position = mul(input.position, gTransformationMatrixData.WVP);
     output.texcoord = input.texcoord;
+    output.worldPosition = mul(
+        input.position, gTransformationMatrixData.World).xyz;
     
     // 通常のWorld行列ではなく逆転置行列を使い、X/Y/Zで異なる拡大率にも対応する。
     output.normal = normalize(mul(

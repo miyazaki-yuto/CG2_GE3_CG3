@@ -73,7 +73,7 @@ void Graphics::Initialize(
 void Graphics::CreateRootSignature(std::ofstream& logStream) {
     // ルートパラメータの対応:
     // [0]=b0 Material, [1]=b1 TransformationMatrix,
-    // [2]=t0 Texture,  [3]=b2 DirectionalLight
+    // [2]=t0 Texture,  [3]=b2 LightingData（SunとPoint Light）
     D3D12_ROOT_PARAMETER rootParameters[4]{};
 
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -281,7 +281,7 @@ void Graphics::BeginDraw() {
     // バックバッファの遷移とクリアはDirectXCommonへ委譲する。
     dxCommon_->BeginDraw();
 
-    // 全描画で共有するライトを、このフレーム用の定数領域へ1回だけ書き込む。
+    // ライトのGPUアドレスを無効化し、この後のImGui編集を最初のDrawへ反映できるようにする。
     lightingManager_->BeginFrame();
 
     // Drawの呼び出し順を内部スロット0から割り当て直す。

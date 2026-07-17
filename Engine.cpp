@@ -37,11 +37,6 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 			reinterpret_cast<LONG_PTR>(engine));
 	}
 
-	// ホイール入力はメッセージで届くため、ImGuiより先にInputManagerへ渡す。
-	if (engine != nullptr && engine->inputManager_ != nullptr) {
-		engine->inputManager_->HandleMessage(message, wParam, lParam);
-	}
-
 #ifdef USE_IMGUI
 	// メッセージは最初にImGuiに渡す
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {

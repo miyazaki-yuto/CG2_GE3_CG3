@@ -13,6 +13,8 @@ struct VertexShaderOutput
     float4 position : SV_POSITION;
     float2 texcoord : TEXCOORD0;
     float3 normal : NORMAL0; // ピクセルシェーダーへ法線を渡す
+    // Point Lightとの距離と方向を計算するため、変換後のワールド座標も渡す。
+    float3 worldPosition : TEXCOORD1;
 };
 
 struct DirectionalLight
@@ -20,6 +22,19 @@ struct DirectionalLight
     float4 color; 
     float3 direction;
     float intensity;
+    int enabled;
+    float3 padding;
+};
+
+struct PointLight
+{
+    float4 color;
+    float3 position;
+    float intensity;
+    float radius;
+    float decay;
+    int enabled;
+    float padding;
 };
 
 // b0: 描画物ごとの色、ライティングの有効／無効、UV変換行列。
@@ -33,6 +48,7 @@ cbuffer MaterialBuffer : register(b0)
 
 cbuffer LightBuffer : register(b2)
 {
-    // b2: PrimitiveDrawerが設定する、全3D形状で共有の平行光源。
+    // b2: LightingManagerが設定し、全ての描画クラスで共有するライト。
     DirectionalLight gDirectionalLight;
+    PointLight gPointLight;
 }

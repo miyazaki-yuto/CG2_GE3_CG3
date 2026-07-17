@@ -3,6 +3,7 @@
 #include "AudioManager.h"
 #include "DebugCamera.h"
 #include "InputManager.h"
+#include "LightingManager.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
 #include "Model.h"
@@ -40,6 +41,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		PrimitiveDrawer* primitiveDrawer = graphics->GetPrimitiveDrawer();
 		DebugCamera* debugCamera = graphics->GetDebugCamera();
 		Sprite* sprite = graphics->GetSprite();
+#ifdef USE_IMGUI
+		LightingManager* lightingManager = graphics->GetLightingManager();
+#endif
 		AudioManager* audioManager = engine.GetAudioManager();
 		InputManager* inputManager = engine.GetInputManager();
 
@@ -221,6 +225,41 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 				if (ImGui::Button("Reset Camera")) {
 					debugCamera->Reset();
 				}
+			}
+			ImGui::End();
+
+			// BlenderのLightプロパティに相当する、シーン共通ライトの編集画面。
+			ImGui::Begin("Lighting");
+			if (lightingManager != nullptr) {
+				DirectionalLight directionalLight =
+					lightingManager->GetDirectionalLight();
+				bool directionalEnabled = directionalLight.enabled != 0;
+				ImGui::SeparatorText("Sun");
+				ImGui::Checkbox("Enable Sun", &directionalEnabled);
+				directionalLight.enabled = directionalEnabled ? 1 : 0;
+				ImGui::ColorEdit3("Sun Color", &directionalLight.color.r);
+				ImGui::DragFloat3(
+					"Sun Direction", &directionalLight.direction.x, 0.01f, -1.0f, 1.0f);
+				ImGui::DragFloat(
+					"Sun Intensity", &directionalLight.intensity, 0.01f, 0.0f, 20.0f);
+				lightingManager->SetDirectionalLight(directionalLight);
+
+				PointLight pointLight = lightingManager->GetPointLight();
+				bool pointEnabled = pointLight.enabled != 0;
+				ImGui::SeparatorText("Point Light");
+				ImGui::Checkbox("Enable Point Light", &pointEnabled);
+				pointLight.enabled = pointEnabled ? 1 : 0;
+				ImGui::ColorEdit3("Point Color", &pointLight.color.r);
+				// Positionを動かすと、各ピクセルまでの方向と距離がシェーダー内で再計算される。
+				ImGui::DragFloat3(
+					"Point Position", &pointLight.position.x, 0.05f, -100.0f, 100.0f);
+				ImGui::DragFloat(
+					"Point Intensity", &pointLight.intensity, 0.05f, 0.0f, 100.0f);
+				ImGui::DragFloat(
+					"Point Radius", &pointLight.radius, 0.05f, 0.01f, 100.0f);
+				ImGui::DragFloat(
+					"Point Decay", &pointLight.decay, 0.05f, 0.01f, 8.0f);
+				lightingManager->SetPointLight(pointLight);
 			}
 			ImGui::End();
 

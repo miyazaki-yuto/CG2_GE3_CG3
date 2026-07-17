@@ -453,6 +453,6 @@ void Model::Draw(
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
     commandList->SetGraphicsRootConstantBufferView(
-        3, lightingManager_->GetDirectionalLightGpuAddress());
+        3, lightingManager_->GetLightingGpuAddress());
     commandList->DrawIndexedInstanced(indexCount_, 1, 0, 0, 0);
 }

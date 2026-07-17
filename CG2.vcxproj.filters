@@ -99,8 +99,17 @@
     <ClCompile Include="Sprite.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="AudioManager.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="InputManager.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Model.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>ソース ファイル\Engine\Shader</Filter>
+      <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -170,6 +179,15 @@
     <ClInclude Include="TriangleEffect.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="AudioManager.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="InputManager.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="Model.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Object3d.PS.hlsl">
@@ -185,6 +203,10 @@
   <ItemGroup>
     <None Include="Object3d.hlsli">
       <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="Resources\Models\cube.obj" />
+    <None Include="Resources\bgm.wav">
+      <Filter>リソース ファイル</Filter>
     </None>
   </ItemGroup>
 </Project>

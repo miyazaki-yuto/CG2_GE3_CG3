@@ -167,7 +167,7 @@ void PrimitiveDrawer::SetCommonDrawState() {
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     // 全描画クラスで共有する平行光源を、ルートパラメータ3（b2）へ設定する。
     commandList->SetGraphicsRootConstantBufferView(
-        3, lightingManager_->GetDirectionalLightGpuAddress());
+        3, lightingManager_->GetLightingGpuAddress());
 }
 
 void PrimitiveDrawer::DrawTriangle(
