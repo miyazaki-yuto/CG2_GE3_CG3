@@ -109,6 +109,7 @@ void Sprite::CreateInstanceResources(uint32_t index) {
     assert(SUCCEEDED(hr));
     materialData_[index]->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     materialData_[index]->enableLighting = 0;
+    materialData_[index]->uvTransform = MakeIdentity4x4();
 
     wvpResources_[index].Attach(DX12Utility::CreateBufferResource(
         dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
@@ -145,7 +146,8 @@ void Sprite::UpdateMatrix(
 void Sprite::Draw(
     const TransformData& transform,
     const Vector4& color,
-    int textureHandle) {
+    int textureHandle,
+    const UVTransform& uvTransform) {
     assert(dxCommon_ != nullptr);
     assert(textureManager_ != nullptr);
     assert(rootSignature_ != nullptr);
@@ -162,6 +164,8 @@ void Sprite::Draw(
     // Draw順から選ばれた専用スロットへ、今回の行列と色を反映する。
     UpdateMatrix(index, transform);
     materialData_[index]->color = { color.x, color.y, color.z, color.w };
+    // SpriteごとのUV変換を設定する。物体の座標変換には影響しない。
+    materialData_[index]->uvTransform = MakeUVTransformMatrix(uvTransform);
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureManager_->GetSrvHeap() };

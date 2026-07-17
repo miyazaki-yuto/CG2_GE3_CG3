@@ -119,6 +119,7 @@ void PrimitiveDrawer::CreateTriangleInstanceResources(uint32_t index) {
     assert(SUCCEEDED(hr));
     triangleMaterialData_[index]->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     triangleMaterialData_[index]->enableLighting = 1;
+    triangleMaterialData_[index]->uvTransform = MakeIdentity4x4();
 
     triangleWvpResources_[index].Attach(DX12Utility::CreateBufferResource(
         dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
@@ -231,6 +232,7 @@ void PrimitiveDrawer::CreateSphereInstanceResources(uint32_t index) {
     assert(SUCCEEDED(hr));
     sphereMaterialData_[index]->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     sphereMaterialData_[index]->enableLighting = 1;
+    sphereMaterialData_[index]->uvTransform = MakeIdentity4x4();
 
     sphereWvpResources_[index].Attach(DX12Utility::CreateBufferResource(
         dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
@@ -296,7 +298,8 @@ void PrimitiveDrawer::DrawTriangle(
     const TextureVertexData* vertices,
     const TransformData& transform,
     const Vector4& color,
-    int textureHandle) {
+    int textureHandle,
+    const UVTransform& uvTransform) {
     assert(dxCommon_ != nullptr);
     assert(vertices != nullptr);
     assert(textureHandle >= 0);
@@ -316,6 +319,8 @@ void PrimitiveDrawer::DrawTriangle(
     // Drawの引数を、その三角形専用の定数バッファへ反映する。
     UpdateTriangleMatrix(index, transform);
     triangleMaterialData_[index]->color = { color.x, color.y, color.z, color.w };
+    // この三角形専用のUV変換をMaterial定数バッファへ書き込む。
+    triangleMaterialData_[index]->uvTransform = MakeUVTransformMatrix(uvTransform);
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     SetCommonDrawState();
@@ -341,7 +346,8 @@ void PrimitiveDrawer::DrawTriangle(
 void PrimitiveDrawer::DrawSphere(
     const TransformData& transform,
     const Vector4& color,
-    int textureHandle) {
+    int textureHandle,
+    const UVTransform& uvTransform) {
     assert(dxCommon_ != nullptr);
     assert(textureHandle >= 0);
 
@@ -354,6 +360,8 @@ void PrimitiveDrawer::DrawSphere(
 
     UpdateSphereMatrix(index, transform);
     sphereMaterialData_[index]->color = { color.x, color.y, color.z, color.w };
+    // 球にも三角形とは独立したUV変換を設定できる。
+    sphereMaterialData_[index]->uvTransform = MakeUVTransformMatrix(uvTransform);
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     SetCommonDrawState();

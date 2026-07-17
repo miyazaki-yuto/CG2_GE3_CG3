@@ -32,11 +32,12 @@ public:
     // 頂点形状を差し替える場合だけ使用する。通常は初期化時の四角形を使う。
     void SetVertices(const TextureVertexData* vertices);
 
-    // 描画に必要な座標・色・テクスチャを、Drawの引数だけで指定する。
+    // 描画に必要な座標・色・テクスチャ・UV変換を、Drawの引数だけで指定する。
     void Draw(
         const TransformData& transform,
         const Vector4& color,
-        int textureHandle);
+        int textureHandle,
+        const UVTransform& uvTransform);
 
 private:
     // インデックスバッファを使わず、四角形を2枚の三角形で表現する。

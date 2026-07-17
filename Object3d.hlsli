@@ -22,11 +22,13 @@ struct DirectionalLight
     float intensity;
 };
 
-// b0: 描画物ごとの色と、ライティングの有効／無効。
+// b0: 描画物ごとの色、ライティングの有効／無効、UV変換行列。
 cbuffer MaterialBuffer : register(b0)
 {
     float4 gMaterialColor;
     int gEnableLighting;
+    float3 gMaterialPadding;
+    float4x4 gUVTransform;
 }
 
 cbuffer LightBuffer : register(b2)
