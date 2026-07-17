@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include "Engine.h"
 #include "AudioManager.h"
+#include "InputManager.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
 #include "Model.h"
@@ -31,6 +32,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		PrimitiveDrawer* primitiveDrawer = graphics->GetPrimitiveDrawer();
 		Sprite* sprite = graphics->GetSprite();
 		AudioManager* audioManager = engine.GetAudioManager();
+		InputManager* inputManager = engine.GetInputManager();
 
 		// BGMはゲーム側がハンドルを所有し、起動時にループ再生する。
 		float bgmVolume = 0.25f;
@@ -123,11 +125,85 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			transform[0].rotate.y -= 0.01f;
 			transform[1].rotate.x -= 0.01f;
 
+			if (inputManager != nullptr) {
+				// W/A/S/Dとゲームパッド左スティックを、同じ移動処理へまとめる。
+				GamepadStick leftStick = inputManager->GetLeftStick();
+				float moveX = leftStick.x;
+				float moveY = leftStick.y;
+				if (inputManager->IsKeyPressed('A')) {
+					moveX -= 1.0f;
+				}
+				if (inputManager->IsKeyPressed('D')) {
+					moveX += 1.0f;
+				}
+				if (inputManager->IsKeyPressed('W')) {
+					moveY += 1.0f;
+				}
+				if (inputManager->IsKeyPressed('S')) {
+					moveY -= 1.0f;
+				}
+				constexpr float kModelMoveSpeed = 0.05f;
+				modelTransform.translate.x += moveX * kModelMoveSpeed;
+				modelTransform.translate.y += moveY * kModelMoveSpeed;
+
+				// SpaceまたはゲームパッドAで、BGMの一時停止と再開を切り替える。
+				const bool toggleBgm = inputManager->IsKeyTriggered(VK_SPACE) ||
+					inputManager->IsGamepadButtonTriggered(XINPUT_GAMEPAD_A);
+				if (toggleBgm && audioManager != nullptr && bgmHandle >= 0) {
+					if (audioManager->IsPlaying(bgmHandle)) {
+						audioManager->Pause(bgmHandle);
+					} else if (audioManager->IsPaused(bgmHandle)) {
+						audioManager->Resume(bgmHandle);
+					} else {
+						audioManager->Play(bgmHandle, true);
+					}
+				}
+			}
+
 			//================//
 			// -- 描画処理 -- //
 			//================//
 			// 1. バックバッファをクリアし、描画コマンドの記録を開始する。
 			graphics->BeginDraw();
+
+			ImGui::Begin("Input State");
+			if (inputManager != nullptr) {
+				const POINT mousePosition = inputManager->GetMousePosition();
+				const POINT mouseDelta = inputManager->GetMouseDelta();
+				const GamepadStick leftStick = inputManager->GetLeftStick();
+				const GamepadStick rightStick = inputManager->GetRightStick();
+
+				ImGui::Text(
+					"Keyboard W/A/S/D: %s %s %s %s",
+					inputManager->IsKeyPressed('W') ? "W" : "-",
+					inputManager->IsKeyPressed('A') ? "A" : "-",
+					inputManager->IsKeyPressed('S') ? "S" : "-",
+					inputManager->IsKeyPressed('D') ? "D" : "-");
+				ImGui::Text("Space Trigger: %s",
+					inputManager->IsKeyTriggered(VK_SPACE) ? "ON" : "OFF");
+				ImGui::Separator();
+				ImGui::Text("Mouse Position: %ld, %ld", mousePosition.x, mousePosition.y);
+				ImGui::Text("Mouse Delta: %ld, %ld", mouseDelta.x, mouseDelta.y);
+				ImGui::Text("Mouse Wheel: %d", inputManager->GetMouseWheelDelta());
+				ImGui::Text(
+					"Mouse Buttons: L=%s R=%s M=%s",
+					inputManager->IsMousePressed(MouseButton::Left) ? "ON" : "OFF",
+					inputManager->IsMousePressed(MouseButton::Right) ? "ON" : "OFF",
+					inputManager->IsMousePressed(MouseButton::Middle) ? "ON" : "OFF");
+				ImGui::Separator();
+				ImGui::Text(
+					"XInput Gamepad: %s",
+					inputManager->IsGamepadConnected() ? "Connected" : "Not Connected");
+				if (inputManager->IsGamepadConnected()) {
+					ImGui::Text("Left Stick: %.2f, %.2f", leftStick.x, leftStick.y);
+					ImGui::Text("Right Stick: %.2f, %.2f", rightStick.x, rightStick.y);
+					ImGui::Text(
+						"Triggers: L=%.2f R=%.2f",
+						inputManager->GetLeftTrigger(),
+						inputManager->GetRightTrigger());
+				}
+			}
+			ImGui::End();
 
 			// XAudio2で再生中のBGMをImGuiから操作する。
 			ImGui::Begin("Sound Control");

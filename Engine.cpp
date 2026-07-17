@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include "AudioManager.h"
+#include "InputManager.h"
 #include <filesystem>
 #include <chrono>
 #include <format>
@@ -17,6 +18,24 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	// CreateWindowの最後の引数で渡したEngineを、ウィンドウへ関連付ける。
+	Engine* engine = reinterpret_cast<Engine*>(
+		GetWindowLongPtr(hWnd, GWLP_USERDATA));
+	if (message == WM_NCCREATE) {
+		const CREATESTRUCT* createStruct =
+			reinterpret_cast<const CREATESTRUCT*>(lParam);
+		engine = static_cast<Engine*>(createStruct->lpCreateParams);
+		SetWindowLongPtr(
+			hWnd,
+			GWLP_USERDATA,
+			reinterpret_cast<LONG_PTR>(engine));
+	}
+
+	// ホイール入力はメッセージで届くため、ImGuiより先にInputManagerへ渡す。
+	if (engine != nullptr && engine->inputManager_ != nullptr) {
+		engine->inputManager_->HandleMessage(message, wParam, lParam);
+	}
+
 #ifdef USE_IMGUI
 	// メッセージは最初にImGuiに渡す
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam)) {
@@ -35,6 +54,8 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 Engine::~Engine()
 {
+	inputManager_.reset();
+
 	// SourceVoiceを先に止めてから、描画関連とDirectX 12を破棄する。
 	audioManager_.reset();
 
@@ -84,7 +105,11 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 		wc.lpszClassName, L"CG2", WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		wrc.right - wrc.left, wrc.bottom - wrc.top,
-		nullptr, nullptr, hInstance, nullptr);
+		nullptr, nullptr, hInstance, this);
+
+	// キーボードとマウスは作成したウィンドウに対して初期化する。
+	inputManager_ = std::make_unique<InputManager>();
+	inputManager_->Initialize(hWnd_);
 
 	ShowWindow(hWnd_, nCmdShow);
 
@@ -117,6 +142,9 @@ bool Engine::ProcessMessage()
 		}
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
+	}
+	if (inputManager_ != nullptr) {
+		inputManager_->Update();
 	}
 	// 終了メッセージが来ていなければ true を返す（ゲーム続行）
 	return true;

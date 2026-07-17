@@ -7,6 +7,7 @@
 #include "Graphics.h"
 
 class AudioManager;
+class InputManager;
 
 // ウィンドウ、メッセージループ、DirectX初期化の順序を管理するアプリケーションの土台。
 class Engine
@@ -19,6 +20,7 @@ public:
 	bool ProcessMessage();
 	Graphics* GetGraphics() const { return graphics_.get(); }
 	AudioManager* GetAudioManager() const { return audioManager_.get(); }
+	InputManager* GetInputManager() const { return inputManager_.get(); }
 
 	static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception);
 
@@ -35,4 +37,5 @@ private:
 	std::unique_ptr<DirectXCommon> dxCommon_;
 	std::unique_ptr<Graphics> graphics_;
 	std::unique_ptr<AudioManager> audioManager_;
+	std::unique_ptr<InputManager> inputManager_;
 };
