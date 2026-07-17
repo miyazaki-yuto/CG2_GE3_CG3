@@ -6,6 +6,8 @@
 #include "DirectXCommon.h"
 #include "Graphics.h"
 
+class AudioManager;
+
 // ウィンドウ、メッセージループ、DirectX初期化の順序を管理するアプリケーションの土台。
 class Engine
 {
@@ -16,6 +18,7 @@ public:
 	void Initialize(HINSTANCE hInstance, int nCmdShow);
 	bool ProcessMessage();
 	Graphics* GetGraphics() const { return graphics_.get(); }
+	AudioManager* GetAudioManager() const { return audioManager_.get(); }
 
 	static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception);
 
@@ -31,4 +34,5 @@ private:
 	std::ofstream logStream_;
 	std::unique_ptr<DirectXCommon> dxCommon_;
 	std::unique_ptr<Graphics> graphics_;
+	std::unique_ptr<AudioManager> audioManager_;
 };
