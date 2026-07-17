@@ -32,19 +32,7 @@ Graphics::~Graphics() {
     // GPUが使用中のリソースを解放しないよう、先に処理完了を待つ。
     WaitForGpu();
     ShutdownImGui();
-    CleanupResources();
-}
-
-void Graphics::CleanupResources() {
-    // 描画クラスは共通PSOとTextureManagerを参照しているため、先に破棄する。
-    sprite_.reset();
-    primitiveDrawer_.reset();
-    textureManager_.reset();
-
-    spritePipelineState_.Reset();
-    object3dPipelineState_.Reset();
-    rootSignature_.Reset();
-    dxCommon_ = nullptr;
+    // unique_ptrとComPtrのメンバーは宣言と逆順に自動破棄される。
 }
 
 void Graphics::Initialize(
@@ -159,24 +147,22 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
     hr = dxcUtils->CreateDefaultIncludeHandler(&includeHandler);
     assert(SUCCEEDED(hr));
 
-    Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob;
-    vertexShaderBlob.Attach(DX12Utility::CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob = DX12Utility::CompileShader(
         L"Object3d.VS.hlsl",
         L"vs_6_0",
         dxcUtils.Get(),
         dxcCompiler.Get(),
         includeHandler.Get(),
-        logStream));
+        logStream);
     assert(vertexShaderBlob != nullptr);
 
-    Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob;
-    pixelShaderBlob.Attach(DX12Utility::CompileShader(
+    Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob = DX12Utility::CompileShader(
         L"Object3d.PS.hlsl",
         L"ps_6_0",
         dxcUtils.Get(),
         dxcCompiler.Get(),
         includeHandler.Get(),
-        logStream));
+        logStream);
     assert(pixelShaderBlob != nullptr);
 
     // TextureVertexDataとVertexShaderInputの各要素を対応付ける。

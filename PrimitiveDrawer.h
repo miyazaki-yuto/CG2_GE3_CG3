@@ -17,7 +17,8 @@ public:
     static constexpr uint32_t kMaxSphereCount = 100;
 
     PrimitiveDrawer() = default;
-    ~PrimitiveDrawer();
+    // GPUリソースはComPtrが自動解放する。Uploadヒープは永続Mapのまま破棄できる。
+    ~PrimitiveDrawer() = default;
 
     PrimitiveDrawer(const PrimitiveDrawer&) = delete;
     PrimitiveDrawer& operator=(const PrimitiveDrawer&) = delete;

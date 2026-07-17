@@ -78,15 +78,24 @@ void DirectXCommon::Initialize(HWND hWnd, int32_t width, int32_t height) {
     swapChainDesc.BufferCount = 2;
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-    hr = dxgiFactory_->CreateSwapChainForHwnd(commandQueue_.Get(), hWnd, &swapChainDesc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(swapChain_.GetAddressOf()));
+    Microsoft::WRL::ComPtr<IDXGISwapChain1> baseSwapChain;
+    hr = dxgiFactory_->CreateSwapChainForHwnd(
+        commandQueue_.Get(),
+        hWnd,
+        &swapChainDesc,
+        nullptr,
+        nullptr,
+        baseSwapChain.GetAddressOf());
+    assert(SUCCEEDED(hr));
+    hr = baseSwapChain.As(&swapChain_);
     assert(SUCCEEDED(hr));
 
     // RTV用ヒープとリソースの生成: バックバッファを「描画先」として見えるようにする。
-    rtvDescriptorHeap_.Attach(DX12Utility::CreateDescriptorHeap(
+    rtvDescriptorHeap_ = DX12Utility::CreateDescriptorHeap(
         device_.Get(),
         D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
         2,
-        false));
+        false);
 
     D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
     rtvDesc.Format = GetBackBufferFormat();
@@ -104,11 +113,11 @@ void DirectXCommon::Initialize(HWND hWnd, int32_t width, int32_t height) {
     }
 
     // 深度バッファ(DSV)の生成: 手前のピクセルだけを描画するための奥行き情報。
-    dsvDescriptorHeap_.Attach(DX12Utility::CreateDescriptorHeap(
+    dsvDescriptorHeap_ = DX12Utility::CreateDescriptorHeap(
         device_.Get(),
         D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
         1,
-        false));
+        false);
 
     D3D12_RESOURCE_DESC depthResDesc{};
     depthResDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;

@@ -17,7 +17,8 @@ class TextureManager;
 class Model {
 public:
     Model() = default;
-    ~Model();
+    // GPUリソースはComPtrが自動解放する。Uploadヒープは永続Mapのまま破棄できる。
+    ~Model() = default;
 
     Model(const Model&) = delete;
     Model& operator=(const Model&) = delete;

@@ -59,7 +59,6 @@ private:
     // ImGuiはTextureManagerのSRVヒープ先頭1枠を使用する。
     void InitializeImGui(HWND hWnd);
     void ShutdownImGui();
-    void CleanupResources();
     void WaitForGpu();
 
     // 所有しない参照。EngineがGraphicsより長く生存させる。

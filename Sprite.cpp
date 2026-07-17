@@ -7,24 +7,6 @@
 
 #include <cassert>
 
-Sprite::~Sprite() {
-    // InitializeでMapした各Uploadリソースを対応するUnmapで閉じる。
-    if (vertexData_ != nullptr && vertexResource_ != nullptr) {
-        vertexResource_->Unmap(0, nullptr);
-    }
-    for (uint32_t i = 0; i < kMaxSpriteCount; ++i) {
-        if (materialData_[i] != nullptr && materialResources_[i] != nullptr) {
-            materialResources_[i]->Unmap(0, nullptr);
-        }
-        if (wvpData_[i] != nullptr && wvpResources_[i] != nullptr) {
-            wvpResources_[i]->Unmap(0, nullptr);
-        }
-    }
-    if (directionalLightData_ != nullptr && directionalLightResource_ != nullptr) {
-        directionalLightResource_->Unmap(0, nullptr);
-    }
-}
-
 void Sprite::Initialize(
     DirectXCommon* dxCommon,
     TextureManager* textureManager,
@@ -48,8 +30,8 @@ void Sprite::Initialize(
 
     // 四角形を表す6頂点分のバッファを作る。
     const size_t vertexBufferSize = sizeof(TextureVertexData) * kVertexCount;
-    vertexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), vertexBufferSize));
+    vertexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), vertexBufferSize);
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
     vertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
@@ -70,8 +52,8 @@ void Sprite::Initialize(
 
     // Object3d用シェーダーはb2を宣言しているので、Spriteでも有効なCBVを設定できるようにする。
     const UINT lightBufferSize = (sizeof(DirectionalLight) + 255) & ~255u;
-    directionalLightResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), lightBufferSize));
+    directionalLightResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), lightBufferSize);
     hr = directionalLightResource_->Map(
         0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
     assert(SUCCEEDED(hr));
@@ -102,8 +84,8 @@ void Sprite::CreateInstanceResources(uint32_t index) {
     }
 
     const UINT materialBufferSize = (sizeof(Material) + 255) & ~255u;
-    materialResources_[index].Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), materialBufferSize));
+    materialResources_[index] = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), materialBufferSize);
     HRESULT hr = materialResources_[index]->Map(
         0, nullptr, reinterpret_cast<void**>(&materialData_[index]));
     assert(SUCCEEDED(hr));
@@ -111,8 +93,8 @@ void Sprite::CreateInstanceResources(uint32_t index) {
     materialData_[index]->enableLighting = 0;
     materialData_[index]->uvTransform = MakeIdentity4x4();
 
-    wvpResources_[index].Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
+    wvpResources_[index] = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), sizeof(TransformationMatrix));
     hr = wvpResources_[index]->Map(
         0, nullptr, reinterpret_cast<void**>(&wvpData_[index]));
     assert(SUCCEEDED(hr));

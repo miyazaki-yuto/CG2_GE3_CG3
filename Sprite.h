@@ -12,7 +12,8 @@ class TextureManager;
 class Sprite {
 public:
     Sprite() = default;
-    ~Sprite();
+    // GPUリソースはComPtrが自動解放する。Uploadヒープは永続Mapのまま破棄できる。
+    ~Sprite() = default;
 
     Sprite(const Sprite&) = delete;
     Sprite& operator=(const Sprite&) = delete;

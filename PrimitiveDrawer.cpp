@@ -8,33 +8,6 @@
 #include <cassert>
 #include <cmath>
 
-PrimitiveDrawer::~PrimitiveDrawer() {
-    // Mapしたリソースは、リソースを解放する前にUnmapする。
-    // Uploadヒープの内容はGPUが参照するため、通常はフレーム中ずっとMapしたまま使う。
-    if (triangleVertexData_ != nullptr && triangleVertexResource_ != nullptr) {
-        triangleVertexResource_->Unmap(0, nullptr);
-    }
-    for (uint32_t i = 0; i < kMaxTriangleCount; ++i) {
-        if (triangleMaterialData_[i] != nullptr && triangleMaterialResources_[i] != nullptr) {
-            triangleMaterialResources_[i]->Unmap(0, nullptr);
-        }
-        if (triangleWvpData_[i] != nullptr && triangleWvpResources_[i] != nullptr) {
-            triangleWvpResources_[i]->Unmap(0, nullptr);
-        }
-    }
-    for (uint32_t i = 0; i < kMaxSphereCount; ++i) {
-        if (sphereMaterialData_[i] != nullptr && sphereMaterialResources_[i] != nullptr) {
-            sphereMaterialResources_[i]->Unmap(0, nullptr);
-        }
-        if (sphereWvpData_[i] != nullptr && sphereWvpResources_[i] != nullptr) {
-            sphereWvpResources_[i]->Unmap(0, nullptr);
-        }
-    }
-    if (directionalLightData_ != nullptr && directionalLightResource_ != nullptr) {
-        directionalLightResource_->Unmap(0, nullptr);
-    }
-}
-
 void PrimitiveDrawer::Initialize(
     DirectXCommon* dxCommon,
     TextureManager* textureManager,
@@ -74,8 +47,8 @@ void PrimitiveDrawer::CreateTriangleResources() {
     // 最大数分の頂点を、連続した1つの頂点バッファとして確保する。
     const size_t vertexBufferSize =
         sizeof(TextureVertexData) * kTriangleVertexCount * kMaxTriangleCount;
-    triangleVertexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), vertexBufferSize));
+    triangleVertexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), vertexBufferSize);
     triangleVertexBufferView_.BufferLocation = triangleVertexResource_->GetGPUVirtualAddress();
     triangleVertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
     triangleVertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
@@ -87,8 +60,8 @@ void PrimitiveDrawer::CreateTriangleResources() {
 
     // 1枚の三角形は3頂点を0→1→2の順で参照する。
     const size_t indexBufferSize = sizeof(uint32_t) * kTriangleIndexCount;
-    triangleIndexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), indexBufferSize));
+    triangleIndexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), indexBufferSize);
     triangleIndexBufferView_.BufferLocation = triangleIndexResource_->GetGPUVirtualAddress();
     triangleIndexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
     triangleIndexBufferView_.Format = DXGI_FORMAT_R32_UINT;
@@ -112,8 +85,8 @@ void PrimitiveDrawer::CreateTriangleInstanceResources(uint32_t index) {
 
     // 実際に登録された三角形だけ、個別のMaterialとWVPを作る。
     const UINT materialBufferSize = (sizeof(Material) + 255) & ~255u;
-    triangleMaterialResources_[index].Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), materialBufferSize));
+    triangleMaterialResources_[index] = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), materialBufferSize);
     HRESULT hr = triangleMaterialResources_[index]->Map(
         0, nullptr, reinterpret_cast<void**>(&triangleMaterialData_[index]));
     assert(SUCCEEDED(hr));
@@ -121,8 +94,8 @@ void PrimitiveDrawer::CreateTriangleInstanceResources(uint32_t index) {
     triangleMaterialData_[index]->enableLighting = 1;
     triangleMaterialData_[index]->uvTransform = MakeIdentity4x4();
 
-    triangleWvpResources_[index].Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
+    triangleWvpResources_[index] = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), sizeof(TransformationMatrix));
     hr = triangleWvpResources_[index]->Map(
         0, nullptr, reinterpret_cast<void**>(&triangleWvpData_[index]));
     assert(SUCCEEDED(hr));
@@ -133,8 +106,8 @@ void PrimitiveDrawer::CreateTriangleInstanceResources(uint32_t index) {
 void PrimitiveDrawer::CreateDirectionalLightResource() {
     // b2に渡す平行光源の定数バッファを作成する。
     const UINT lightBufferSize = (sizeof(DirectionalLight) + 255) & ~255u;
-    directionalLightResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), lightBufferSize));
+    directionalLightResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), lightBufferSize);
 
     const HRESULT hr = directionalLightResource_->Map(
         0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
@@ -152,8 +125,8 @@ void PrimitiveDrawer::CreateSphereResources() {
     sphereIndexCount_ = kSphereSubdivision * kSphereSubdivision * 6;
 
     const size_t vertexBufferSize = sizeof(TextureVertexData) * sphereVertexCount_;
-    sphereVertexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), vertexBufferSize));
+    sphereVertexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), vertexBufferSize);
     sphereVertexBufferView_.BufferLocation = sphereVertexResource_->GetGPUVirtualAddress();
     sphereVertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
     sphereVertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
@@ -188,8 +161,8 @@ void PrimitiveDrawer::CreateSphereResources() {
     sphereVertexResource_->Unmap(0, nullptr);
 
     const size_t indexBufferSize = sizeof(uint32_t) * sphereIndexCount_;
-    sphereIndexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), indexBufferSize));
+    sphereIndexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), indexBufferSize);
     sphereIndexBufferView_.BufferLocation = sphereIndexResource_->GetGPUVirtualAddress();
     sphereIndexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
     sphereIndexBufferView_.Format = DXGI_FORMAT_R32_UINT;
@@ -225,8 +198,8 @@ void PrimitiveDrawer::CreateSphereInstanceResources(uint32_t index) {
     }
 
     const UINT materialBufferSize = (sizeof(Material) + 255) & ~255u;
-    sphereMaterialResources_[index].Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), materialBufferSize));
+    sphereMaterialResources_[index] = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), materialBufferSize);
     HRESULT hr = sphereMaterialResources_[index]->Map(
         0, nullptr, reinterpret_cast<void**>(&sphereMaterialData_[index]));
     assert(SUCCEEDED(hr));
@@ -234,8 +207,8 @@ void PrimitiveDrawer::CreateSphereInstanceResources(uint32_t index) {
     sphereMaterialData_[index]->enableLighting = 1;
     sphereMaterialData_[index]->uvTransform = MakeIdentity4x4();
 
-    sphereWvpResources_[index].Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
+    sphereWvpResources_[index] = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), sizeof(TransformationMatrix));
     hr = sphereWvpResources_[index]->Map(
         0, nullptr, reinterpret_cast<void**>(&sphereWvpData_[index]));
     assert(SUCCEEDED(hr));

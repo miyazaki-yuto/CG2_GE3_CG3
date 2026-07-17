@@ -43,7 +43,9 @@ std::string ConvertString(const std::wstring& str) {
     return result;
 }
 
-ID3D12Resource* CreateBufferResource(ID3D12Device* device, size_t sizeInBytes) {
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateBufferResource(
+    ID3D12Device* device,
+    size_t sizeInBytes) {
     assert(device != nullptr);
 
     // UploadヒープはCPUからMapして書ける。定数バッファや動的頂点に向く。
@@ -59,19 +61,19 @@ ID3D12Resource* CreateBufferResource(ID3D12Device* device, size_t sizeInBytes) {
     resourceDesc.SampleDesc.Count = 1;
     resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    ID3D12Resource* resource = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource;
     const HRESULT hr = device->CreateCommittedResource(
         &heapProperties,
         D3D12_HEAP_FLAG_NONE,
         &resourceDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
-        IID_PPV_ARGS(&resource));
+        IID_PPV_ARGS(resource.GetAddressOf()));
     assert(SUCCEEDED(hr));
     return resource;
 }
 
-ID3D12Resource* CreateTextureResource(
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureResource(
     ID3D12Device* device,
     const DirectX::TexMetadata& metadata) {
     assert(device != nullptr);
@@ -92,19 +94,19 @@ ID3D12Resource* CreateTextureResource(
     // DefaultヒープはGPU専用。COPY_DEST状態で作り、後でUploadTextureDataで内容をコピーする。
     heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
 
-    ID3D12Resource* resource = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource;
     const HRESULT hr = device->CreateCommittedResource(
         &heapProperties,
         D3D12_HEAP_FLAG_NONE,
         &resourceDesc,
         D3D12_RESOURCE_STATE_COPY_DEST,
         nullptr,
-        IID_PPV_ARGS(&resource));
+        IID_PPV_ARGS(resource.GetAddressOf()));
     assert(SUCCEEDED(hr));
     return resource;
 }
 
-ID3D12Resource* UploadTextureData(
+Microsoft::WRL::ComPtr<ID3D12Resource> UploadTextureData(
     ID3D12Resource* texture,
     const DirectX::ScratchImage& mipImages,
     ID3D12Device* device,
@@ -128,21 +130,21 @@ ID3D12Resource* UploadTextureData(
     const auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     const auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(intermediateSize);
 
-    ID3D12Resource* intermediateResource = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
     const HRESULT hr = device->CreateCommittedResource(
         &heapProperties,
         D3D12_HEAP_FLAG_NONE,
         &bufferDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
-        IID_PPV_ARGS(&intermediateResource));
+        IID_PPV_ARGS(intermediateResource.GetAddressOf()));
     assert(SUCCEEDED(hr));
 
     // コピーコマンドをコマンドリストへ積む（この時点ではまだGPUは実行していない）。
     UpdateSubresources(
         commandList,
         texture,
-        intermediateResource,
+        intermediateResource.Get(),
         0,
         0,
         static_cast<UINT>(subresources.size()),
@@ -157,7 +159,7 @@ ID3D12Resource* UploadTextureData(
     return intermediateResource;
 }
 
-ID3D12DescriptorHeap* CreateDescriptorHeap(
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
     ID3D12Device* device,
     D3D12_DESCRIPTOR_HEAP_TYPE heapType,
     UINT numDescriptors,
@@ -172,15 +174,15 @@ ID3D12DescriptorHeap* CreateDescriptorHeap(
         ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
         : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
-    ID3D12DescriptorHeap* descriptorHeap = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
     const HRESULT hr = device->CreateDescriptorHeap(
         &descriptorHeapDesc,
-        IID_PPV_ARGS(&descriptorHeap));
+        IID_PPV_ARGS(descriptorHeap.GetAddressOf()));
     assert(SUCCEEDED(hr));
     return descriptorHeap;
 }
 
-IDxcBlob* CompileShader(
+Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(
     const std::wstring& filePath,
     const wchar_t* profile,
     IDxcUtils* dxcUtils,
@@ -195,8 +197,9 @@ IDxcBlob* CompileShader(
     Log(logStream, ConvertString(std::format(
         L"Begin CompileShader, path:{}, profile:{}", filePath, profile)));
 
-    IDxcBlobEncoding* shaderSource = nullptr;
-    HRESULT hr = dxcUtils->LoadFile(filePath.c_str(), nullptr, &shaderSource);
+    Microsoft::WRL::ComPtr<IDxcBlobEncoding> shaderSource;
+    HRESULT hr = dxcUtils->LoadFile(
+        filePath.c_str(), nullptr, shaderSource.GetAddressOf());
     assert(SUCCEEDED(hr));
 
     // 読み込んだHLSLのメモリ範囲をDXCへ渡す。
@@ -215,38 +218,36 @@ IDxcBlob* CompileShader(
         L"-Zpr",
     };
 
-    IDxcResult* shaderResult = nullptr;
+    Microsoft::WRL::ComPtr<IDxcResult> shaderResult;
     hr = dxcCompiler->Compile(
         &shaderSourceBuffer,
         arguments,
         _countof(arguments),
         includeHandler,
-        IID_PPV_ARGS(&shaderResult));
+        IID_PPV_ARGS(shaderResult.GetAddressOf()));
     assert(SUCCEEDED(hr));
 
     // DXCは成功時でも警告を返すことがある。文字列があればログへ出す。
-    IDxcBlobUtf8* shaderError = nullptr;
-    shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
+    Microsoft::WRL::ComPtr<IDxcBlobUtf8> shaderError;
+    shaderResult->GetOutput(
+        DXC_OUT_ERRORS,
+        IID_PPV_ARGS(shaderError.GetAddressOf()),
+        nullptr);
     if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
         Log(logStream, shaderError->GetStringPointer());
-        shaderError->Release();
-        shaderSource->Release();
-        shaderResult->Release();
         assert(false);
-        return nullptr;
-    }
-    if (shaderError != nullptr) {
-        shaderError->Release();
+        return {};
     }
 
-    IDxcBlob* shaderBlob = nullptr;
-    hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
+    Microsoft::WRL::ComPtr<IDxcBlob> shaderBlob;
+    hr = shaderResult->GetOutput(
+        DXC_OUT_OBJECT,
+        IID_PPV_ARGS(shaderBlob.GetAddressOf()),
+        nullptr);
     assert(SUCCEEDED(hr));
     Log(logStream, ConvertString(std::format(
         L"Compile Succeeded, path:{}, profile:{}", filePath, profile)));
 
-    shaderSource->Release();
-    shaderResult->Release();
     return shaderBlob;
 }
 

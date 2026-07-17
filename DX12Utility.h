@@ -2,6 +2,7 @@
 
 #include <d3d12.h>
 #include <dxcapi.h>
+#include <wrl.h>
 #include "externals/DirectXTex/DirectXTex.h"
 #include <cstddef>
 #include <iosfwd>
@@ -17,30 +18,32 @@ std::wstring ConvertString(const std::string& str);
 std::string ConvertString(const std::wstring& str);
 
 // CPUからMapして書き込めるUploadヒープ上のバッファを作成する。
-ID3D12Resource* CreateBufferResource(ID3D12Device* device, size_t sizeInBytes);
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateBufferResource(
+    ID3D12Device* device,
+    size_t sizeInBytes);
 
 // GPU専用のテクスチャ本体をCOPY_DEST状態で作成する。
-ID3D12Resource* CreateTextureResource(
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureResource(
     ID3D12Device* device,
     const DirectX::TexMetadata& metadata);
 
 // テクスチャデータを中間バッファ経由でGPUへコピーする。
 // 戻り値の中間リソースは、GPUがコピーを完了するまで保持しなければならない。
-ID3D12Resource* UploadTextureData(
+Microsoft::WRL::ComPtr<ID3D12Resource> UploadTextureData(
     ID3D12Resource* texture,
     const DirectX::ScratchImage& mipImages,
     ID3D12Device* device,
     ID3D12GraphicsCommandList* commandList);
 
 // CBV/SRV/UAV、RTV、DSVなどのビューを置くディスクリプタヒープを作成する。
-ID3D12DescriptorHeap* CreateDescriptorHeap(
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
     ID3D12Device* device,
     D3D12_DESCRIPTOR_HEAP_TYPE heapType,
     UINT numDescriptors,
     bool shaderVisible);
 
 // HLSLファイルをDXCでコンパイルし、描画PSOに設定できるバイトコードを返す。
-IDxcBlob* CompileShader(
+Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(
     const std::wstring& filePath,
     const wchar_t* profile,
     IDxcUtils* dxcUtils,

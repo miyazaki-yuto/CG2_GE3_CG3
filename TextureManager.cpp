@@ -2,6 +2,7 @@
 #include "DX12Utility.h"
 
 #include <cassert>
+#include <utility>
 #include "externals/DirectXTex/DirectXTex.h"
 
 namespace {
@@ -44,11 +45,11 @@ void TextureManager::Initialize(ID3D12Device* device) {
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     // ImGui用1枠 + ゲーム用テクスチャkMaxTextures枠を、1つのshaderVisibleヒープに確保する。
-    srvDescriptorHeap_.Attach(DX12Utility::CreateDescriptorHeap(
+    srvDescriptorHeap_ = DX12Utility::CreateDescriptorHeap(
         device_,
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
         static_cast<UINT>(kMaxTextures) + kImGuiDescriptorCount,
-        true));
+        true);
 }
 
 int TextureManager::LoadTexture(
@@ -73,17 +74,17 @@ int TextureManager::LoadTexture(
     const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 
     // 2. GPU専用テクスチャを作成し、中間バッファからコピーするコマンドを記録する。
-    textureResources_[textureCount_].Attach(
-        DX12Utility::CreateTextureResource(device_, metadata));
+    textureResources_[textureCount_] =
+        DX12Utility::CreateTextureResource(device_, metadata);
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
-    intermediateResource.Attach(DX12Utility::UploadTextureData(
+    Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource =
+        DX12Utility::UploadTextureData(
         textureResources_[textureCount_].Get(),
         mipImages,
         device_,
-        commandList));
+        commandList);
     // コピーがGPUで完了するまで中間バッファを生かしておく。
-    intermediateResources_.push_back(intermediateResource);
+    intermediateResources_.push_back(std::move(intermediateResource));
 
     // 3. ImGui予約枠の次から、テクスチャ番号に対応するSRVを作成する。
     D3D12_CPU_DESCRIPTOR_HANDLE srvHandleCPU =

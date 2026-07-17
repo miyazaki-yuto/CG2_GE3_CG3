@@ -170,19 +170,6 @@ std::string LoadMaterialTexturePath(
 
 } // namespace
 
-Model::~Model() {
-    // 定数バッファは毎フレーム書き換えるため、初期化時から終了時までMapしている。
-    if (materialData_ != nullptr && materialResource_ != nullptr) {
-        materialResource_->Unmap(0, nullptr);
-    }
-    if (wvpData_ != nullptr && wvpResource_ != nullptr) {
-        wvpResource_->Unmap(0, nullptr);
-    }
-    if (directionalLightData_ != nullptr && directionalLightResource_ != nullptr) {
-        directionalLightResource_->Unmap(0, nullptr);
-    }
-}
-
 bool Model::Initialize(
     DirectXCommon* dxCommon,
     TextureManager* textureManager,
@@ -402,8 +389,8 @@ void Model::CreateMeshResources(
 
     vertexCount_ = static_cast<uint32_t>(vertices.size());
     const size_t vertexBufferSize = sizeof(TextureVertexData) * vertices.size();
-    vertexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), vertexBufferSize));
+    vertexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), vertexBufferSize);
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
     vertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
@@ -417,8 +404,8 @@ void Model::CreateMeshResources(
 
     indexCount_ = static_cast<uint32_t>(indices.size());
     const size_t indexBufferSize = sizeof(uint32_t) * indices.size();
-    indexResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), indexBufferSize));
+    indexResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), indexBufferSize);
     indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
     indexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
     indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
@@ -433,8 +420,8 @@ void Model::CreateMeshResources(
 
 void Model::CreateConstantBufferResources() {
     const UINT materialBufferSize = (sizeof(Material) + 255u) & ~255u;
-    materialResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), materialBufferSize));
+    materialResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), materialBufferSize);
     HRESULT hr = materialResource_->Map(
         0, nullptr, reinterpret_cast<void**>(&materialData_));
     assert(SUCCEEDED(hr));
@@ -445,16 +432,16 @@ void Model::CreateConstantBufferResources() {
     materialData_->padding[2] = 0.0f;
     materialData_->uvTransform = MakeIdentity4x4();
 
-    wvpResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), sizeof(TransformationMatrix)));
+    wvpResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), sizeof(TransformationMatrix));
     hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
     assert(SUCCEEDED(hr));
     wvpData_->WVP = MakeIdentity4x4();
     wvpData_->World = MakeIdentity4x4();
 
     const UINT lightBufferSize = (sizeof(DirectionalLight) + 255u) & ~255u;
-    directionalLightResource_.Attach(DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), lightBufferSize));
+    directionalLightResource_ = DX12Utility::CreateBufferResource(
+        dxCommon_->GetDevice(), lightBufferSize);
     hr = directionalLightResource_->Map(
         0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
     assert(SUCCEEDED(hr));
