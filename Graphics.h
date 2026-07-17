@@ -11,6 +11,7 @@
 
 class DirectXCommon;
 class DebugCamera;
+class LightingManager;
 class Model;
 class PrimitiveDrawer;
 class Sprite;
@@ -39,6 +40,9 @@ public:
     void BeginDraw();
     void EndDraw();
 
+    // SwapChain変更後の画面サイズを、カメラと2D投影へ反映する。
+    void Resize(uint32_t width, uint32_t height);
+
     // 読み込んだテクスチャを指定するための番号を返す。
     int LoadTexture(const std::string& filePath);
 
@@ -51,6 +55,7 @@ public:
     Sprite* GetSprite() const { return sprite_.get(); }
     PrimitiveDrawer* GetPrimitiveDrawer() const { return primitiveDrawer_.get(); }
     DebugCamera* GetDebugCamera() const { return debugCamera_.get(); }
+    LightingManager* GetLightingManager() const { return lightingManager_.get(); }
 
 private:
     // Initializeを処理の目的ごとに分け、初期化順を読みやすくする。
@@ -75,6 +80,8 @@ private:
     std::unique_ptr<TextureManager> textureManager_;
     // 3D描画クラスより先に生成し、後に破棄する共有カメラ。
     std::unique_ptr<DebugCamera> debugCamera_;
+    // 全ての描画クラスが同じ平行光源を参照する。
+    std::unique_ptr<LightingManager> lightingManager_;
     std::unique_ptr<PrimitiveDrawer> primitiveDrawer_;
     std::unique_ptr<Sprite> sprite_;
 

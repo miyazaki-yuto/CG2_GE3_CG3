@@ -1,5 +1,6 @@
 #pragma once
 #include <d3d12.h>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <wrl.h>
@@ -19,8 +20,10 @@ public:
     // 描画時に使用するGPU上のハンドルを取得する
     D3D12_GPU_DESCRIPTOR_HANDLE GetSrvHandleGPU(int textureIndex) const;
 
-    // GPUへのデータ転送が完了した後に、中間リソースを解放するための関数
-    void ReleaseIntermediateResources();
+    // 今回送信したUploadリソースへフェンス値を付け、GPU完了済みのものだけ解放する。
+    void ReleaseIntermediateResources(
+        uint64_t submittedFenceValue,
+        uint64_t completedFenceValue);
 
     // ImGui用の予約領域を除き、ゲーム用テクスチャは128枚まで読み込める。
     static constexpr size_t kMaxTextures = 128;
@@ -36,6 +39,11 @@ public:
     }
 
 private:
+    struct IntermediateResourceBatch {
+        uint64_t fenceValue = 0;
+        std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> resources;
+    };
+
     // TextureManagerはデバイスを所有せず、Graphics/DirectXCommonが寿命を管理する。
     ID3D12Device* device_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> srvDescriptorHeap_;
@@ -49,6 +57,7 @@ private:
 
     // データ転送用の中間リソース（コマンド実行完了まで保持する必要がある）
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediateResources_;
+    std::vector<IntermediateResourceBatch> submittedIntermediateResourceBatches_;
 
     // ディスクリプタを1個進めるためのバイト数（GPUごとに異なる）。
     UINT descriptorSize_ = 0;

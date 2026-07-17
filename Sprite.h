@@ -5,6 +5,7 @@
 #include "CommonTypes.h"
 
 class DirectXCommon;
+class LightingManager;
 class TextureManager;
 
 // 2Dスプライト1枚分の頂点・マテリアル・行列を管理して描画するクラス。
@@ -12,7 +13,7 @@ class TextureManager;
 class Sprite {
 public:
     Sprite() = default;
-    // GPUリソースはComPtrが自動解放する。Uploadヒープは永続Mapのまま破棄できる。
+    // GPUリソースの所有はDirectXCommonとGraphicsへ集約している。
     ~Sprite() = default;
 
     Sprite(const Sprite&) = delete;
@@ -21,11 +22,15 @@ public:
     // 画面サイズは、ピクセル座標をそのまま使う正射影行列の作成に使用する。
     void Initialize(
         DirectXCommon* dxCommon,
+        LightingManager* lightingManager,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
         ID3D12PipelineState* pipelineState,
         uint32_t windowWidth,
         uint32_t windowHeight);
+
+    // ウィンドウサイズに合わせて、ピクセル座標用の正射影範囲を更新する。
+    void Resize(uint32_t windowWidth, uint32_t windowHeight);
 
     // Graphics::BeginDrawから呼び、今フレームの自動採番を0に戻す。
     void BeginFrame();
@@ -45,30 +50,16 @@ private:
     static constexpr UINT kVertexCount = 6;
     static constexpr uint32_t kMaxSpriteCount = 1000;
 
-    void CreateInstanceResources(uint32_t index);
-    void UpdateMatrix(uint32_t index, const TransformData& transform);
-
     DirectXCommon* dxCommon_ = nullptr;
+    LightingManager* lightingManager_ = nullptr;
     TextureManager* textureManager_ = nullptr;
 
     // ルートシグネチャとPSOは3D描画と共有する。
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
 
-    // Uploadヒープの頂点／定数バッファ。Mapしたポインタへ書くとGPUから読める。
-    Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
-    D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-    TextureVertexData* vertexData_ = nullptr;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialResources_[kMaxSpriteCount];
-    Material* materialData_[kMaxSpriteCount]{};
-
-    // Object3d用ルートシグネチャのb2を有効な値で埋めるためのダミー光源。
-    Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
-    DirectionalLight* directionalLightData_ = nullptr;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> wvpResources_[kMaxSpriteCount];
-    TransformationMatrix* wvpData_[kMaxSpriteCount]{};
+    // 頂点のひな形はCPU側に保持し、Draw時に安全なフレーム用領域へコピーする。
+    TextureVertexData vertices_[kVertexCount]{};
 
     uint32_t windowWidth_ = 0;
     uint32_t windowHeight_ = 0;

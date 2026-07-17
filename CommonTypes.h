@@ -43,7 +43,10 @@ inline Matrix4x4 MakeUVTransformMatrix(const UVTransform& transform) {
 
 struct TransformationMatrix {
     Matrix4x4 WVP;
-    Matrix4x4 World; 
+    Matrix4x4 World;
+    // 法線は位置と違い、非均一スケール時にWorld行列をそのまま掛けると方向が歪む。
+    // Worldの逆転置行列を使うことで、面に対して垂直な向きを保つ。
+    Matrix4x4 WorldInverseTranspose;
 };
 
 struct VertexData {

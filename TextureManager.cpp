@@ -1,6 +1,7 @@
 #include "TextureManager.h"
 #include "DX12Utility.h"
 
+#include <algorithm>
 #include <cassert>
 #include <utility>
 #include "externals/DirectXTex/DirectXTex.h"
@@ -120,7 +121,26 @@ D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(int textureIndex) co
     return handle;
 }
 
-void TextureManager::ReleaseIntermediateResources() {
-    // Graphics::EndDraw後はGPU完了を待っているため、安全に一括解放できる。
-    intermediateResources_.clear();
+void TextureManager::ReleaseIntermediateResources(
+    uint64_t submittedFenceValue,
+    uint64_t completedFenceValue) {
+    // 今回のコマンドリストに含まれたUploadリソースへ、完了判定用のフェンス値を付ける。
+    if (!intermediateResources_.empty()) {
+        IntermediateResourceBatch batch{};
+        batch.fenceValue = submittedFenceValue;
+        batch.resources = std::move(intermediateResources_);
+        submittedIntermediateResourceBatches_.push_back(std::move(batch));
+        intermediateResources_.clear();
+    }
+
+    // GPUが該当フェンスまで完了したバッチだけを破棄する。
+    // 未完了のUploadリソースは次フレーム以降も保持される。
+    const auto removeBegin = std::remove_if(
+        submittedIntermediateResourceBatches_.begin(),
+        submittedIntermediateResourceBatches_.end(),
+        [completedFenceValue](const IntermediateResourceBatch& batch) {
+            return batch.fenceValue <= completedFenceValue;
+        });
+    submittedIntermediateResourceBatches_.erase(
+        removeBegin, submittedIntermediateResourceBatches_.end());
 }

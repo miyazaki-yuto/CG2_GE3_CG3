@@ -7,10 +7,17 @@
 #include "Sprite.h"
 #include "Model.h"
 #include "CommonTypes.h"
+#ifdef USE_IMGUI
 #include "externals/imgui/imgui.h"
+#endif
 #include "TriangleEffect.h" 
+
+#include <cmath>
+
+#ifdef _DEBUG
 #include <dxgidebug.h>
 #pragma comment(lib, "dxguid.lib")
+#endif
 
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/, _In_ int nCmdShow)
@@ -74,7 +81,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			monsterBallTextureHandle,
 			whiteTextureHandle
 		};
+#ifdef USE_IMGUI
+		// テクスチャ名はImGuiのコンボボックスでのみ使用する。
 		const char* textureNames[] = { "uvChecker", "monsterBall", "White" };
+#endif
 		int selectedTriangleTexture[2] = { 0, 0 };
 		// 三角形ごとに独立したUV変換を持たせる。
 		UVTransform triangleUVTransform[2] = {
@@ -124,8 +134,11 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			// ゲーム処理 // 
 			//============//
 
-			transform[0].rotate.y -= 0.01f;
-			transform[1].rotate.x -= 0.01f;
+			// Engineが実測した秒数。速度に掛けることで、60FPSでも144FPSでも同じ速さになる。
+			const float deltaTime = engine.GetDeltaTime();
+			constexpr float kTriangleRotateSpeed = 0.6f; // 1秒あたりの回転量（ラジアン）
+			transform[0].rotate.y -= kTriangleRotateSpeed * deltaTime;
+			transform[1].rotate.x -= kTriangleRotateSpeed * deltaTime;
 
 			if (inputManager != nullptr) {
 				// W/A/S/Dとゲームパッド左スティックを、同じ移動処理へまとめる。
@@ -144,9 +157,16 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 				if (inputManager->IsKeyPressed('S')) {
 					moveY -= 1.0f;
 				}
-				constexpr float kModelMoveSpeed = 0.05f;
-				modelTransform.translate.x += moveX * kModelMoveSpeed;
-				modelTransform.translate.y += moveY * kModelMoveSpeed;
+				// 斜め入力やキーボード＋スティックで長さが1を超えないよう正規化する。
+				const float moveLength = std::sqrt(moveX * moveX + moveY * moveY);
+				if (moveLength > 1.0f) {
+					moveX /= moveLength;
+					moveY /= moveLength;
+				}
+
+				constexpr float kModelMoveSpeed = 3.0f; // 1秒あたり3ワールド単位
+				modelTransform.translate.x += moveX * kModelMoveSpeed * deltaTime;
+				modelTransform.translate.y += moveY * kModelMoveSpeed * deltaTime;
 
 				// SpaceまたはゲームパッドAで、BGMの一時停止と再開を切り替える。
 				const bool toggleBgm = inputManager->IsKeyTriggered(VK_SPACE) ||
@@ -168,11 +188,17 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			// 1. バックバッファをクリアし、描画コマンドの記録を開始する。
 			graphics->BeginDraw();
 
-			// ImGuiがマウスを使用している間は、スライダー操作などでカメラが動くのを防ぐ。
+			// ReleaseではImGuiが存在しないため常に操作を許可し、
+			// DebugではImGui操作中だけカメラのマウス入力を止める。
+			bool allowDebugCameraMouseControl = true;
+#ifdef USE_IMGUI
+			allowDebugCameraMouseControl = !ImGui::GetIO().WantCaptureMouse;
+#endif
 			if (debugCamera != nullptr && inputManager != nullptr) {
-				debugCamera->Update(*inputManager, !ImGui::GetIO().WantCaptureMouse);
+				debugCamera->Update(*inputManager, allowDebugCameraMouseControl);
 			}
 
+#ifdef USE_IMGUI
 			ImGui::Begin("Debug Camera");
 			if (debugCamera != nullptr) {
 				const Vector3& cameraPosition = debugCamera->GetPosition();
@@ -342,6 +368,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			ImGui::DragFloat2("UV Translate 2", &triangleUVTransform[1].translate.x, 0.01f, -10.0f, 10.0f);
 
 			ImGui::End();
+#endif
 
 			// 2. 3Dを先に描き、深度を使わないSpriteを最後に重ねる。
 			primitiveDrawer->DrawTriangle(

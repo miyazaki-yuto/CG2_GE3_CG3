@@ -66,7 +66,13 @@
     <ClCompile Include="Engine.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="GameTimer.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
     <ClCompile Include="Graphics.cpp">
+      <Filter>ソース ファイル\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="LightingManager.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="DebugCamera.cpp">
@@ -140,6 +146,9 @@
     <ClInclude Include="Graphics.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="LightingManager.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="DebugCamera.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
@@ -153,6 +162,9 @@
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Engine.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="GameTimer.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
     <ClInclude Include="TriangleEffect.h">

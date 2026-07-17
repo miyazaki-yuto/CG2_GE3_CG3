@@ -34,8 +34,8 @@ public:
 
     // 初期化
     void Initialize(Graphics* graphics);
-    // 更新
-    void Update();
+    // 更新。Engine::GetDeltaTime()で得た秒数を渡す。
+    void Update(float deltaTime);
     // 全花弁を、引数で指定されたテクスチャとUV変換を使って描画する。
     void Draw(
         int textureHandle,

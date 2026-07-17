@@ -1,8 +1,8 @@
 #include "Model.h"
 
-#include "DX12Utility.h"
 #include "DebugCamera.h"
 #include "DirectXCommon.h"
+#include "LightingManager.h"
 #include "Matrix4x4.h"
 #include "TextureManager.h"
 
@@ -10,7 +10,6 @@
 
 #include <array>
 #include <cassert>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -174,26 +173,24 @@ std::string LoadMaterialTexturePath(
 bool Model::Initialize(
     DirectXCommon* dxCommon,
     DebugCamera* debugCamera,
+    LightingManager* lightingManager,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
     ID3D12PipelineState* pipelineState,
-    uint32_t windowWidth,
-    uint32_t windowHeight,
     const std::string& objFilePath) {
     assert(dxCommon != nullptr);
     assert(debugCamera != nullptr);
+    assert(lightingManager != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
     assert(pipelineState != nullptr);
-    assert(windowWidth > 0 && windowHeight > 0);
 
     dxCommon_ = dxCommon;
     debugCamera_ = debugCamera;
+    lightingManager_ = lightingManager;
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
     pipelineState_ = pipelineState;
-    windowWidth_ = windowWidth;
-    windowHeight_ = windowHeight;
     sourcePath_ = objFilePath;
 
     std::vector<TextureVertexData> vertices;
@@ -203,14 +200,6 @@ bool Model::Initialize(
     }
 
     CreateMeshResources(vertices, indices);
-    CreateConstantBufferResources();
-
-    viewport_.Width = static_cast<float>(windowWidth_);
-    viewport_.Height = static_cast<float>(windowHeight_);
-    viewport_.MinDepth = 0.0f;
-    viewport_.MaxDepth = 1.0f;
-    scissorRect_.right = static_cast<LONG>(windowWidth_);
-    scissorRect_.bottom = static_cast<LONG>(windowHeight_);
     return true;
 }
 
@@ -392,66 +381,23 @@ void Model::CreateMeshResources(
 
     vertexCount_ = static_cast<uint32_t>(vertices.size());
     const size_t vertexBufferSize = sizeof(TextureVertexData) * vertices.size();
-    vertexResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), vertexBufferSize);
+    vertexResource_ = dxCommon_->CreateStaticBufferResource(
+        vertices.data(),
+        vertexBufferSize,
+        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
     vertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
 
-    TextureVertexData* mappedVertices = nullptr;
-    HRESULT hr = vertexResource_->Map(
-        0, nullptr, reinterpret_cast<void**>(&mappedVertices));
-    assert(SUCCEEDED(hr));
-    std::memcpy(mappedVertices, vertices.data(), vertexBufferSize);
-    vertexResource_->Unmap(0, nullptr);
-
     indexCount_ = static_cast<uint32_t>(indices.size());
     const size_t indexBufferSize = sizeof(uint32_t) * indices.size();
-    indexResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), indexBufferSize);
+    indexResource_ = dxCommon_->CreateStaticBufferResource(
+        indices.data(),
+        indexBufferSize,
+        D3D12_RESOURCE_STATE_INDEX_BUFFER);
     indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
     indexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
     indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
-
-    uint32_t* mappedIndices = nullptr;
-    hr = indexResource_->Map(
-        0, nullptr, reinterpret_cast<void**>(&mappedIndices));
-    assert(SUCCEEDED(hr));
-    std::memcpy(mappedIndices, indices.data(), indexBufferSize);
-    indexResource_->Unmap(0, nullptr);
-}
-
-void Model::CreateConstantBufferResources() {
-    const UINT materialBufferSize = (sizeof(Material) + 255u) & ~255u;
-    materialResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), materialBufferSize);
-    HRESULT hr = materialResource_->Map(
-        0, nullptr, reinterpret_cast<void**>(&materialData_));
-    assert(SUCCEEDED(hr));
-    materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    materialData_->enableLighting = 1;
-    materialData_->padding[0] = 0.0f;
-    materialData_->padding[1] = 0.0f;
-    materialData_->padding[2] = 0.0f;
-    materialData_->uvTransform = MakeIdentity4x4();
-
-    wvpResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), sizeof(TransformationMatrix));
-    hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
-    assert(SUCCEEDED(hr));
-    wvpData_->WVP = MakeIdentity4x4();
-    wvpData_->World = MakeIdentity4x4();
-
-    const UINT lightBufferSize = (sizeof(DirectionalLight) + 255u) & ~255u;
-    directionalLightResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), lightBufferSize);
-    hr = directionalLightResource_->Map(
-        0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
-    assert(SUCCEEDED(hr));
-    directionalLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    directionalLightData_->direction = { 0.0f, -1.0f, 1.0f };
-    directionalLightData_->direction.Normalize();
-    directionalLightData_->intensity = 1.0f;
 }
 
 void Model::Draw(
@@ -468,31 +414,45 @@ void Model::Draw(
 
     const Matrix4x4 worldMatrix = MakeAffineMatrix(
         transform.scale, transform.rotate, transform.translate);
-    wvpData_->World = worldMatrix;
-    // PrimitiveDrawerと同じ共有デバッグカメラのViewProjectionを使用する。
-    wvpData_->WVP = Multiply(worldMatrix, debugCamera_->GetViewProjectionMatrix());
-    materialData_->color = { color.x, color.y, color.z, color.w };
-    materialData_->uvTransform = MakeUVTransformMatrix(uvTransform);
+
+    // 同じModelを1フレーム内で何回Drawしても上書きされないように、
+    // 色とUV行列をDraw専用の領域へ書き込む。
+    const DynamicBufferAllocation materialAllocation =
+        dxCommon_->AllocateDynamicBuffer(sizeof(Material));
+    auto* materialData = static_cast<Material*>(materialAllocation.cpuAddress);
+    *materialData = {};
+    materialData->color = { color.x, color.y, color.z, color.w };
+    materialData->enableLighting = 1;
+    materialData->uvTransform = MakeUVTransformMatrix(uvTransform);
+
+    // 座標変換行列もDrawごとに独立させる。
+    // 逆転置行列を使うと、X/Y/Zで異なる倍率を掛けても法線の向きが崩れない。
+    const DynamicBufferAllocation transformationAllocation =
+        dxCommon_->AllocateDynamicBuffer(sizeof(TransformationMatrix));
+    auto* transformationData = static_cast<TransformationMatrix*>(
+        transformationAllocation.cpuAddress);
+    transformationData->World = worldMatrix;
+    transformationData->WVP = Multiply(
+        worldMatrix, debugCamera_->GetViewProjectionMatrix());
+    transformationData->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureManager_->GetSrvHeap() };
     commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
     commandList->SetPipelineState(pipelineState_.Get());
-    commandList->RSSetViewports(1, &viewport_);
-    commandList->RSSetScissorRects(1, &scissorRect_);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
     commandList->IASetIndexBuffer(&indexBufferView_);
 
     // Graphicsの共通ルートシグネチャに対応する順番で各リソースを設定する。
     commandList->SetGraphicsRootConstantBufferView(
-        0, materialResource_->GetGPUVirtualAddress());
+        0, materialAllocation.gpuAddress);
     commandList->SetGraphicsRootConstantBufferView(
-        1, wvpResource_->GetGPUVirtualAddress());
+        1, transformationAllocation.gpuAddress);
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
     commandList->SetGraphicsRootConstantBufferView(
-        3, directionalLightResource_->GetGPUVirtualAddress());
+        3, lightingManager_->GetDirectionalLightGpuAddress());
     commandList->DrawIndexedInstanced(indexCount_, 1, 0, 0, 0);
 }

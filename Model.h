@@ -11,6 +11,7 @@
 
 class DirectXCommon;
 class DebugCamera;
+class LightingManager;
 class TextureManager;
 
 // 1つのOBJモデルと、その描画に必要なGPUリソースを所有するクラス。
@@ -18,7 +19,7 @@ class TextureManager;
 class Model {
 public:
     Model() = default;
-    // GPUリソースはComPtrが自動解放する。Uploadヒープは永続Mapのまま破棄できる。
+    // DEFAULTヒープ上の静的GPUリソースはComPtrが自動解放する。
     ~Model() = default;
 
     Model(const Model&) = delete;
@@ -29,11 +30,10 @@ public:
     bool Initialize(
         DirectXCommon* dxCommon,
         DebugCamera* debugCamera,
+        LightingManager* lightingManager,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
         ID3D12PipelineState* pipelineState,
-        uint32_t windowWidth,
-        uint32_t windowHeight,
         const std::string& objFilePath);
 
     // OBJをCPU側の頂点・インデックス配列へ変換する。
@@ -64,9 +64,9 @@ private:
     void CreateMeshResources(
         const std::vector<TextureVertexData>& vertices,
         const std::vector<uint32_t>& indices);
-    void CreateConstantBufferResources();
     DirectXCommon* dxCommon_ = nullptr;
     DebugCamera* debugCamera_ = nullptr;
+    LightingManager* lightingManager_ = nullptr;
     TextureManager* textureManager_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
@@ -79,17 +79,6 @@ private:
     D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
     uint32_t indexCount_ = 0;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-    Material* materialData_ = nullptr;
-    Microsoft::WRL::ComPtr<ID3D12Resource> wvpResource_;
-    TransformationMatrix* wvpData_ = nullptr;
-    Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
-    DirectionalLight* directionalLightData_ = nullptr;
-
-    D3D12_VIEWPORT viewport_{};
-    D3D12_RECT scissorRect_{};
-    uint32_t windowWidth_ = 0;
-    uint32_t windowHeight_ = 0;
     std::string sourcePath_;
     std::string materialTexturePath_;
     std::string lastError_;

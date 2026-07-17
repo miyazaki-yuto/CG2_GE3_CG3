@@ -1,7 +1,7 @@
 #include "Sprite.h"
 
-#include "DX12Utility.h"
 #include "DirectXCommon.h"
+#include "LightingManager.h"
 #include "Matrix4x4.h"
 #include "TextureManager.h"
 
@@ -9,12 +9,14 @@
 
 void Sprite::Initialize(
     DirectXCommon* dxCommon,
+    LightingManager* lightingManager,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
     ID3D12PipelineState* pipelineState,
     uint32_t windowWidth,
     uint32_t windowHeight) {
     assert(dxCommon != nullptr);
+    assert(lightingManager != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
     assert(pipelineState != nullptr);
@@ -22,24 +24,14 @@ void Sprite::Initialize(
     assert(windowHeight > 0);
 
     dxCommon_ = dxCommon;
+    lightingManager_ = lightingManager;
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
     pipelineState_ = pipelineState;
-    windowWidth_ = windowWidth;
-    windowHeight_ = windowHeight;
+    Resize(windowWidth, windowHeight);
 
-    // 四角形を表す6頂点分のバッファを作る。
-    const size_t vertexBufferSize = sizeof(TextureVertexData) * kVertexCount;
-    vertexResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), vertexBufferSize);
-    vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-    vertexBufferView_.SizeInBytes = static_cast<UINT>(vertexBufferSize);
-    vertexBufferView_.StrideInBytes = sizeof(TextureVertexData);
-
-    HRESULT hr = vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData_));
-    assert(SUCCEEDED(hr));
-
-    // 0〜1の単位矩形。Transformのscaleを幅・高さ、translateを表示位置として使う。
+    // 0〜1の単位矩形をCPU側のひな形として保持する。
+    // Draw時にフレーム専用Upload領域へコピーするため、GPU使用中の頂点を上書きしない。
     const TextureVertexData defaultVertices[kVertexCount] = {
         { { 0.0f, 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
         { { 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
@@ -50,79 +42,26 @@ void Sprite::Initialize(
     };
     SetVertices(defaultVertices);
 
-    // Object3d用シェーダーはb2を宣言しているので、Spriteでも有効なCBVを設定できるようにする。
-    const UINT lightBufferSize = (sizeof(DirectionalLight) + 255) & ~255u;
-    directionalLightResource_ = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), lightBufferSize);
-    hr = directionalLightResource_->Map(
-        0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
-    assert(SUCCEEDED(hr));
-    directionalLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    directionalLightData_->direction = { 0.0f, -1.0f, 1.0f };
-    directionalLightData_->direction.Normalize();
-    directionalLightData_->intensity = 1.0f;
+}
 
+void Sprite::Resize(uint32_t windowWidth, uint32_t windowHeight) {
+    assert(windowWidth > 0);
+    assert(windowHeight > 0);
+    windowWidth_ = windowWidth;
+    windowHeight_ = windowHeight;
 }
 
 void Sprite::SetVertices(const TextureVertexData* vertices) {
     assert(vertices != nullptr);
-    assert(vertexData_ != nullptr);
 
-    // Map済みバッファなので、コピーした内容を次のDrawでそのまま使える。
+    // GPUバッファではなくCPU側のひな形だけを書き換えるので、フレーム並列化後も安全。
     for (UINT i = 0; i < kVertexCount; ++i) {
-        vertexData_[i] = vertices[i];
+        vertices_[i] = vertices[i];
     }
 }
 
 void Sprite::BeginFrame() {
     spriteDrawCount_ = 0;
-}
-
-void Sprite::CreateInstanceResources(uint32_t index) {
-    if (materialResources_[index] != nullptr) {
-        return;
-    }
-
-    const UINT materialBufferSize = (sizeof(Material) + 255) & ~255u;
-    materialResources_[index] = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), materialBufferSize);
-    HRESULT hr = materialResources_[index]->Map(
-        0, nullptr, reinterpret_cast<void**>(&materialData_[index]));
-    assert(SUCCEEDED(hr));
-    materialData_[index]->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    materialData_[index]->enableLighting = 0;
-    materialData_[index]->uvTransform = MakeIdentity4x4();
-
-    wvpResources_[index] = DX12Utility::CreateBufferResource(
-        dxCommon_->GetDevice(), sizeof(TransformationMatrix));
-    hr = wvpResources_[index]->Map(
-        0, nullptr, reinterpret_cast<void**>(&wvpData_[index]));
-    assert(SUCCEEDED(hr));
-    wvpData_[index]->WVP = MakeIdentity4x4();
-    wvpData_[index]->World = MakeIdentity4x4();
-}
-
-void Sprite::UpdateMatrix(
-    uint32_t index,
-    const TransformData& transform) {
-    assert(wvpData_[index] != nullptr);
-
-    // scale・rotate・translateを合成して、スプライトのワールド行列を作る。
-    const Matrix4x4 worldMatrix = MakeAffineMatrix(
-        transform.scale,
-        transform.rotate,
-        transform.translate);
-    // 透視投影ではなく正射影を使うので、(0,0)〜(画面幅,画面高)をピクセル座標として扱える。
-    const Matrix4x4 orthographicMatrix = MakeOrthographicMatrix(
-        0.0f,
-        0.0f,
-        static_cast<float>(windowWidth_),
-        static_cast<float>(windowHeight_),
-        0.0f,
-        100.0f);
-
-    wvpData_[index]->World = worldMatrix;
-    wvpData_[index]->WVP = Multiply(worldMatrix, orthographicMatrix);
 }
 
 void Sprite::Draw(
@@ -140,14 +79,47 @@ void Sprite::Draw(
         assert(false && "Sprite draw count exceeded kMaxSpriteCount.");
         return;
     }
-    const uint32_t index = spriteDrawCount_++;
-    CreateInstanceResources(index);
+    ++spriteDrawCount_;
 
-    // Draw順から選ばれた専用スロットへ、今回の行列と色を反映する。
-    UpdateMatrix(index, transform);
-    materialData_[index]->color = { color.x, color.y, color.z, color.w };
-    // SpriteごとのUV変換を設定する。物体の座標変換には影響しない。
-    materialData_[index]->uvTransform = MakeUVTransformMatrix(uvTransform);
+    // 頂点・Material・行列ごとに、現在フレーム専用の異なるGPUアドレスを確保する。
+    DynamicBufferAllocation vertexAllocation = dxCommon_->AllocateDynamicBuffer(
+        sizeof(TextureVertexData) * kVertexCount, 16);
+    auto* dynamicVertices =
+        static_cast<TextureVertexData*>(vertexAllocation.cpuAddress);
+    for (UINT i = 0; i < kVertexCount; ++i) {
+        dynamicVertices[i] = vertices_[i];
+    }
+    D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+    vertexBufferView.BufferLocation = vertexAllocation.gpuAddress;
+    vertexBufferView.SizeInBytes = static_cast<UINT>(vertexAllocation.sizeInBytes);
+    vertexBufferView.StrideInBytes = sizeof(TextureVertexData);
+
+    DynamicBufferAllocation materialAllocation = dxCommon_->AllocateDynamicBuffer(
+        sizeof(Material), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    auto* material = static_cast<Material*>(materialAllocation.cpuAddress);
+    *material = {};
+    material->color = { color.x, color.y, color.z, color.w };
+    material->enableLighting = 0;
+    material->uvTransform = MakeUVTransformMatrix(uvTransform);
+
+    const Matrix4x4 worldMatrix = MakeAffineMatrix(
+        transform.scale, transform.rotate, transform.translate);
+    const Matrix4x4 orthographicMatrix = MakeOrthographicMatrix(
+        0.0f,
+        0.0f,
+        static_cast<float>(windowWidth_),
+        static_cast<float>(windowHeight_),
+        0.0f,
+        100.0f);
+    DynamicBufferAllocation transformationAllocation =
+        dxCommon_->AllocateDynamicBuffer(
+            sizeof(TransformationMatrix),
+            D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    auto* transformation =
+        static_cast<TransformationMatrix*>(transformationAllocation.cpuAddress);
+    transformation->World = worldMatrix;
+    transformation->WVP = Multiply(worldMatrix, orthographicMatrix);
+    transformation->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureManager_->GetSrvHeap() };
@@ -156,18 +128,18 @@ void Sprite::Draw(
     commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
     commandList->SetPipelineState(pipelineState_.Get());
-    commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
+    commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // b0=Material、b1=WVP、t0=Texture の対応でシェーダーへデータを渡す。
     commandList->SetGraphicsRootConstantBufferView(
-        0, materialResources_[index]->GetGPUVirtualAddress());
+        0, materialAllocation.gpuAddress);
     commandList->SetGraphicsRootConstantBufferView(
-        1, wvpResources_[index]->GetGPUVirtualAddress());
+        1, transformationAllocation.gpuAddress);
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
     commandList->SetGraphicsRootConstantBufferView(
-        3, directionalLightResource_->GetGPUVirtualAddress());
+        3, lightingManager_->GetDirectionalLightGpuAddress());
 
     commandList->DrawInstanced(kVertexCount, 1, 0, 0);
 }
