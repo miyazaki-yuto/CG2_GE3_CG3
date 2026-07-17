@@ -39,11 +39,13 @@ public:
         const TextureVertexData* vertices,
         const TransformData& transform,
         const Vector4& color,
-        int textureHandle);
+        int textureHandle,
+        const UVTransform& uvTransform);
     void DrawSphere(
         const TransformData& transform,
         const Vector4& color,
-        int textureHandle);
+        int textureHandle,
+        const UVTransform& uvTransform);
 
 private:
     static constexpr uint32_t kTriangleVertexCount = 3;

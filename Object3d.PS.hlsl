@@ -6,8 +6,10 @@ SamplerState gSampler : register(s0);
 
 float4 main(VertexShaderOutput input) : SV_TARGET
 {
-    // テクスチャの色をサンプリング
-    float4 textureColor = gTexture.Sample(gSampler, input.texcoord);
+    // 元のUVを拡大縮小・回転・平行移動してからテクスチャを読み取る。
+    // z=0、w=1にすることで、4x4行列の平行移動成分も適用できる。
+    float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gUVTransform);
+    float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
     
     float4 finalColor;
     

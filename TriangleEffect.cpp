@@ -131,13 +131,14 @@ void TriangleEffect::Update() {
     }
 }
 
-void TriangleEffect::Draw(int textureHandle) {
+void TriangleEffect::Draw(int textureHandle, const UVTransform& uvTransform) {
     for (size_t i = 0; i < petals_.size(); ++i) {
         primitiveDrawer_->DrawTriangle(
             triangleVertices_,
             petals_[i].current,
             params_.color,
-            textureHandle);
+            textureHandle,
+            uvTransform);
     }
 }
 

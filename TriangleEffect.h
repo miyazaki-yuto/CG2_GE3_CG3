@@ -36,8 +36,10 @@ public:
     void Initialize(Graphics* graphics);
     // 更新
     void Update();
-    // 全花弁を、引数で指定されたテクスチャを使って描画する。
-    void Draw(int textureHandle);
+    // 全花弁を、引数で指定されたテクスチャとUV変換を使って描画する。
+    void Draw(
+        int textureHandle,
+        const UVTransform& uvTransform = { { 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f } });
     // エフェクトをリセットして再生
     void Reset();
 

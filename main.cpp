@@ -54,6 +54,11 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		};
 		const char* textureNames[] = { "uvChecker", "monsterBall", "White" };
 		int selectedTriangleTexture[2] = { 0, 0 };
+		// 三角形ごとに独立したUV変換を持たせる。
+		UVTransform triangleUVTransform[2] = {
+			{ { 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f } },
+			{ { 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f } }
+		};
 
 		// スプライトの初期化
 		TransformData spriteTransform = {
@@ -63,6 +68,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		};
 		int selectedSpriteTexture = 0;
 		Vector4 spriteColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		UVTransform spriteUVTransform = {
+			{ 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f }
+		};
 
 		TransformData sphereTransform = {
 			{ 1.0f, 1.0f, 1.0f }, // Scale 
@@ -71,6 +79,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		};
 		int selectedSphereTexture = 1; // monsterBall など
 		Vector4 sphereColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		UVTransform sphereUVTransform = {
+			{ 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f }
+		};
 
 		OutputDebugStringA("Loop Start\n");
 
@@ -95,6 +106,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			ImGui::SliderFloat3("Sphere Rotate", &sphereTransform.rotate.x, -3.1415f, 3.1415f);
 			ImGui::DragFloat3("Sphere Translate", &sphereTransform.translate.x, 0.1f);
 			ImGui::ColorEdit4("Sphere Color", &sphereColor.x);
+			ImGui::SeparatorText("Sphere UV Transform");
+			ImGui::DragFloat2("Sphere UV Scale", &sphereUVTransform.scale.x, 0.01f, 0.01f, 10.0f);
+			ImGui::SliderFloat("Sphere UV Rotate", &sphereUVTransform.rotate, -3.1415f, 3.1415f);
+			ImGui::DragFloat2("Sphere UV Translate", &sphereUVTransform.translate.x, 0.01f, -10.0f, 10.0f);
 
 			ImGui::Combo("Sphere Texture", &selectedSphereTexture, textureNames, _countof(textureNames));
 			ImGui::End();
@@ -107,6 +122,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			ImGui::DragFloat2("Sprite Position", &spriteTransform.translate.x, 1.0f, 0.0f, 1280.0f);
 
 			ImGui::ColorEdit4("Sprite Color", &spriteColor.x);
+			ImGui::SeparatorText("Sprite UV Transform");
+			ImGui::DragFloat2("Sprite UV Scale", &spriteUVTransform.scale.x, 0.01f, 0.01f, 10.0f);
+			ImGui::SliderFloat("Sprite UV Rotate", &spriteUVTransform.rotate, -3.1415f, 3.1415f);
+			ImGui::DragFloat2("Sprite UV Translate", &spriteUVTransform.translate.x, 0.01f, -10.0f, 10.0f);
 
 			// テクスチャの変更
 			ImGui::Combo("Sprite Texture", &selectedSpriteTexture, textureNames, _countof(textureNames));
@@ -123,6 +142,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			ImGui::DragFloat3("Scale 1", &transform[0].scale.x, 0.1f, 0.01f, 100.0f);
 			ImGui::SliderFloat3("Rotate 1", &transform[0].rotate.x, -3.1415f, 3.1415f);
 			ImGui::DragFloat3("Translate 1", &transform[0].translate.x, 0.1f);
+			ImGui::DragFloat2("UV Scale 1", &triangleUVTransform[0].scale.x, 0.01f, 0.01f, 10.0f);
+			ImGui::SliderFloat("UV Rotate 1", &triangleUVTransform[0].rotate, -3.1415f, 3.1415f);
+			ImGui::DragFloat2("UV Translate 1", &triangleUVTransform[0].translate.x, 0.01f, -10.0f, 10.0f);
 
 			// 2つ目の三角形用のUI
 			ImGui::Separator();
@@ -131,21 +153,28 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			ImGui::DragFloat3("Scale 2", &transform[1].scale.x, 0.1f, 0.01f, 100.0f);
 			ImGui::SliderFloat3("Rotate 2", &transform[1].rotate.x, -3.1415f, 3.1415f);
 			ImGui::DragFloat3("Translate 2", &transform[1].translate.x, 0.1f);
+			ImGui::DragFloat2("UV Scale 2", &triangleUVTransform[1].scale.x, 0.01f, 0.01f, 10.0f);
+			ImGui::SliderFloat("UV Rotate 2", &triangleUVTransform[1].rotate, -3.1415f, 3.1415f);
+			ImGui::DragFloat2("UV Translate 2", &triangleUVTransform[1].translate.x, 0.01f, -10.0f, 10.0f);
 
 			ImGui::End();
 
 			// 2. 3Dを先に描き、深度を使わないSpriteを最後に重ねる。
 			primitiveDrawer->DrawTriangle(
-				vertices, transform[0], color, textureHandles[selectedTriangleTexture[0]]);
+				vertices, transform[0], color, textureHandles[selectedTriangleTexture[0]],
+				triangleUVTransform[0]);
 
 			primitiveDrawer->DrawTriangle(
-				vertices, transform[1], color, textureHandles[selectedTriangleTexture[1]]);
+				vertices, transform[1], color, textureHandles[selectedTriangleTexture[1]],
+				triangleUVTransform[1]);
 
 			primitiveDrawer->DrawSphere(
-				sphereTransform, sphereColor, textureHandles[selectedSphereTexture]);
+				sphereTransform, sphereColor, textureHandles[selectedSphereTexture],
+				sphereUVTransform);
 
 			sprite->Draw(
-				spriteTransform, spriteColor, textureHandles[selectedSpriteTexture]);
+				spriteTransform, spriteColor, textureHandles[selectedSpriteTexture],
+				spriteUVTransform);
 
 
 			// 3. コマンドをGPUへ実行させ、描画済みバックバッファを画面へ表示する。
