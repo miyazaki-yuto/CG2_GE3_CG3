@@ -1,6 +1,7 @@
 #include "Model.h"
 
 #include "DX12Utility.h"
+#include "DebugCamera.h"
 #include "DirectXCommon.h"
 #include "Matrix4x4.h"
 #include "TextureManager.h"
@@ -172,6 +173,7 @@ std::string LoadMaterialTexturePath(
 
 bool Model::Initialize(
     DirectXCommon* dxCommon,
+    DebugCamera* debugCamera,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
     ID3D12PipelineState* pipelineState,
@@ -179,12 +181,14 @@ bool Model::Initialize(
     uint32_t windowHeight,
     const std::string& objFilePath) {
     assert(dxCommon != nullptr);
+    assert(debugCamera != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
     assert(pipelineState != nullptr);
     assert(windowWidth > 0 && windowHeight > 0);
 
     dxCommon_ = dxCommon;
+    debugCamera_ = debugCamera;
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
     pipelineState_ = pipelineState;
@@ -200,7 +204,6 @@ bool Model::Initialize(
 
     CreateMeshResources(vertices, indices);
     CreateConstantBufferResources();
-    UpdateViewProjectionMatrix();
 
     viewport_.Width = static_cast<float>(windowWidth_);
     viewport_.Height = static_cast<float>(windowHeight_);
@@ -451,25 +454,6 @@ void Model::CreateConstantBufferResources() {
     directionalLightData_->intensity = 1.0f;
 }
 
-void Model::UpdateViewProjectionMatrix() {
-    const TransformData cameraTransform = {
-        { 1.0f, 1.0f, 1.0f },
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, -5.0f }
-    };
-    const Matrix4x4 cameraMatrix = MakeAffineMatrix(
-        cameraTransform.scale,
-        cameraTransform.rotate,
-        cameraTransform.translate);
-    const Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-    const Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-        0.45f,
-        static_cast<float>(windowWidth_) / static_cast<float>(windowHeight_),
-        0.1f,
-        100.0f);
-    viewProjectionMatrix_ = Multiply(viewMatrix, projectionMatrix);
-}
-
 void Model::Draw(
     const TransformData& transform,
     const Vector4& color,
@@ -485,7 +469,8 @@ void Model::Draw(
     const Matrix4x4 worldMatrix = MakeAffineMatrix(
         transform.scale, transform.rotate, transform.translate);
     wvpData_->World = worldMatrix;
-    wvpData_->WVP = Multiply(worldMatrix, viewProjectionMatrix_);
+    // PrimitiveDrawerと同じ共有デバッグカメラのViewProjectionを使用する。
+    wvpData_->WVP = Multiply(worldMatrix, debugCamera_->GetViewProjectionMatrix());
     materialData_->color = { color.x, color.y, color.z, color.w };
     materialData_->uvTransform = MakeUVTransformMatrix(uvTransform);
 

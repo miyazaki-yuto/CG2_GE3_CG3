@@ -69,6 +69,9 @@
     <ClCompile Include="Graphics.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="DebugCamera.cpp">
+      <Filter>ソース ファイル\Engine\Graphics</Filter>
+    </ClCompile>
     <ClCompile Include="Matrix4x4.cpp">
       <Filter>ソース ファイル\Engine\Math</Filter>
     </ClCompile>
@@ -135,6 +138,9 @@
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Graphics.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugCamera.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="PrimitiveDrawer.h">

@@ -10,6 +10,7 @@
 #include <string>
 
 class DirectXCommon;
+class DebugCamera;
 class Model;
 class PrimitiveDrawer;
 class Sprite;
@@ -49,6 +50,7 @@ public:
     TextureManager* GetTextureManager() const { return textureManager_.get(); }
     Sprite* GetSprite() const { return sprite_.get(); }
     PrimitiveDrawer* GetPrimitiveDrawer() const { return primitiveDrawer_.get(); }
+    DebugCamera* GetDebugCamera() const { return debugCamera_.get(); }
 
 private:
     // Initializeを処理の目的ごとに分け、初期化順を読みやすくする。
@@ -71,6 +73,8 @@ private:
 
     // 生成順・破棄順をGraphicsが管理する描画関連クラス。
     std::unique_ptr<TextureManager> textureManager_;
+    // 3D描画クラスより先に生成し、後に破棄する共有カメラ。
+    std::unique_ptr<DebugCamera> debugCamera_;
     std::unique_ptr<PrimitiveDrawer> primitiveDrawer_;
     std::unique_ptr<Sprite> sprite_;
 

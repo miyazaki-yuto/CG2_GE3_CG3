@@ -1,6 +1,7 @@
 #include "PrimitiveDrawer.h"
 
 #include "DX12Utility.h"
+#include "DebugCamera.h"
 #include "DirectXCommon.h"
 #include "Matrix4x4.h"
 #include "TextureManager.h"
@@ -10,18 +11,21 @@
 
 void PrimitiveDrawer::Initialize(
     DirectXCommon* dxCommon,
+    DebugCamera* debugCamera,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
     ID3D12PipelineState* pipelineState,
     uint32_t windowWidth,
     uint32_t windowHeight) {
     assert(dxCommon != nullptr);
+    assert(debugCamera != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
     assert(pipelineState != nullptr);
     assert(windowWidth > 0 && windowHeight > 0);
 
     dxCommon_ = dxCommon;
+    debugCamera_ = debugCamera;
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
     pipelineState_ = pipelineState;
@@ -40,7 +44,6 @@ void PrimitiveDrawer::Initialize(
     CreateTriangleResources();
     CreateDirectionalLightResource();
     CreateSphereResources();
-    UpdateViewProjectionMatrix();
 }
 
 void PrimitiveDrawer::CreateTriangleResources() {
@@ -221,26 +224,15 @@ void PrimitiveDrawer::BeginFrame() {
     sphereDrawCount_ = 0;
 }
 
-void PrimitiveDrawer::UpdateViewProjectionMatrix() {
-    // カメラのワールド行列を逆行列にすると、ワールド→ビュー変換行列になる。
-    const Matrix4x4 cameraMatrix = MakeAffineMatrix(
-        cameraTransform_.scale, cameraTransform_.rotate, cameraTransform_.translate);
-    const Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-    const Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-        0.45f,
-        static_cast<float>(windowWidth_) / static_cast<float>(windowHeight_),
-        0.1f,
-        100.0f);
-    viewProjectionMatrix_ = Multiply(viewMatrix, projectionMatrix);
-}
-
 void PrimitiveDrawer::UpdateTriangleMatrix(
     uint32_t index,
     const TransformData& transform) {
     const Matrix4x4 worldMatrix = MakeAffineMatrix(
         transform.scale, transform.rotate, transform.translate);
     triangleWvpData_[index]->World = worldMatrix;
-    triangleWvpData_[index]->WVP = Multiply(worldMatrix, viewProjectionMatrix_);
+    // Graphicsが所有する共通カメラを参照し、全3D描画で同じ視点を使う。
+    triangleWvpData_[index]->WVP = Multiply(
+        worldMatrix, debugCamera_->GetViewProjectionMatrix());
 }
 
 void PrimitiveDrawer::UpdateSphereMatrix(
@@ -249,7 +241,8 @@ void PrimitiveDrawer::UpdateSphereMatrix(
     const Matrix4x4 worldMatrix = MakeAffineMatrix(
         transform.scale, transform.rotate, transform.translate);
     sphereWvpData_[index]->World = worldMatrix;
-    sphereWvpData_[index]->WVP = Multiply(worldMatrix, viewProjectionMatrix_);
+    sphereWvpData_[index]->WVP = Multiply(
+        worldMatrix, debugCamera_->GetViewProjectionMatrix());
 }
 
 void PrimitiveDrawer::SetCommonDrawState() {

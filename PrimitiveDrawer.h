@@ -6,6 +6,7 @@
 #include "CommonTypes.h"
 
 class DirectXCommon;
+class DebugCamera;
 class TextureManager;
 
 // 3Dプリミティブ（三角形・球）のGPUリソースを所有し、描画コマンドを発行するクラス。
@@ -26,6 +27,7 @@ public:
     // Graphics が作成した共通のルートシグネチャ／PSOを受け取り、形状ごとのリソースを作成する。
     void Initialize(
         DirectXCommon* dxCommon,
+        DebugCamera* debugCamera,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
         ID3D12PipelineState* pipelineState,
@@ -59,13 +61,13 @@ private:
     void CreateSphereResources();
     void CreateSphereInstanceResources(uint32_t index);
     void CreateDirectionalLightResource();
-    void UpdateViewProjectionMatrix();
     void UpdateTriangleMatrix(uint32_t index, const TransformData& transform);
     void UpdateSphereMatrix(uint32_t index, const TransformData& transform);
     void SetCommonDrawState();
 
     // 所有しない参照。生成・破棄の順序は Graphics が管理する。
     DirectXCommon* dxCommon_ = nullptr;
+    DebugCamera* debugCamera_ = nullptr;
     TextureManager* textureManager_ = nullptr;
     // 共通の設定を共有するためComPtrで参照カウントを保持する。
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
@@ -107,10 +109,4 @@ private:
     // b2 に設定する平行光源。三角形と球で共有する。
     Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
     DirectionalLight* directionalLightData_ = nullptr;
-    TransformData cameraTransform_ = {
-        { 1.0f, 1.0f, 1.0f },
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, -5.0f }
-    };
-    Matrix4x4 viewProjectionMatrix_{};
 };

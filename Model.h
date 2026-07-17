@@ -10,6 +10,7 @@
 #include "CommonTypes.h"
 
 class DirectXCommon;
+class DebugCamera;
 class TextureManager;
 
 // 1つのOBJモデルと、その描画に必要なGPUリソースを所有するクラス。
@@ -27,6 +28,7 @@ public:
     // OBJファイルが開けない、または有効な面がない場合はfalseを返す。
     bool Initialize(
         DirectXCommon* dxCommon,
+        DebugCamera* debugCamera,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
         ID3D12PipelineState* pipelineState,
@@ -63,9 +65,8 @@ private:
         const std::vector<TextureVertexData>& vertices,
         const std::vector<uint32_t>& indices);
     void CreateConstantBufferResources();
-    void UpdateViewProjectionMatrix();
-
     DirectXCommon* dxCommon_ = nullptr;
+    DebugCamera* debugCamera_ = nullptr;
     TextureManager* textureManager_ = nullptr;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
@@ -89,8 +90,6 @@ private:
     D3D12_RECT scissorRect_{};
     uint32_t windowWidth_ = 0;
     uint32_t windowHeight_ = 0;
-    Matrix4x4 viewProjectionMatrix_{};
-
     std::string sourcePath_;
     std::string materialTexturePath_;
     std::string lastError_;

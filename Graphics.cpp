@@ -1,6 +1,7 @@
 #include "Graphics.h"
 
 #include "DX12Utility.h"
+#include "DebugCamera.h"
 #include "DirectXCommon.h"
 #include "Model.h"
 #include "PrimitiveDrawer.h"
@@ -56,6 +57,10 @@ void Graphics::Initialize(
     // 共有パイプラインを作成してから、利用側の描画クラスを初期化する。
     CreateRootSignature(logStream);
     CreateGraphicsPipelines(logStream);
+
+    // 三角形・球・OBJモデルが同じ視点を共有できるよう、描画クラスより先に作る。
+    debugCamera_ = std::make_unique<DebugCamera>();
+    debugCamera_->Initialize(windowWidth_, windowHeight_);
     CreateRenderers(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     InitializeImGui(hWnd);
 
@@ -252,6 +257,7 @@ void Graphics::CreateRenderers(uint32_t width, uint32_t height) {
     primitiveDrawer_ = std::make_unique<PrimitiveDrawer>();
     primitiveDrawer_->Initialize(
         dxCommon_,
+        debugCamera_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
         object3dPipelineState_.Get(),
@@ -350,10 +356,12 @@ std::unique_ptr<Model> Graphics::CreateModel(const std::string& objFilePath) {
     assert(textureManager_ != nullptr);
     assert(rootSignature_ != nullptr);
     assert(object3dPipelineState_ != nullptr);
+    assert(debugCamera_ != nullptr);
 
     auto model = std::make_unique<Model>();
     if (!model->Initialize(
         dxCommon_,
+        debugCamera_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
         object3dPipelineState_.Get(),

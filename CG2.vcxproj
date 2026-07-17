@@ -96,6 +96,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DebugCamera.cpp" />
     <ClCompile Include="DirectXCommon.cpp" />
     <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="DX12Utility.cpp" />
@@ -134,6 +135,7 @@
   <ItemGroup>
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="AudioManager.h" />
+    <ClInclude Include="DebugCamera.h" />
     <ClInclude Include="DirectXCommon.h" />
     <ClInclude Include="DX12Utility.h" />
     <ClInclude Include="Engine.h" />

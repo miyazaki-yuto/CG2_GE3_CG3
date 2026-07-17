@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include "Engine.h"
 #include "AudioManager.h"
+#include "DebugCamera.h"
 #include "InputManager.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
@@ -30,6 +31,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		Graphics* graphics = engine.GetGraphics();
 		// Graphicsが所有する描画クラスを借りる。生成・破棄はGraphicsが担当する。
 		PrimitiveDrawer* primitiveDrawer = graphics->GetPrimitiveDrawer();
+		DebugCamera* debugCamera = graphics->GetDebugCamera();
 		Sprite* sprite = graphics->GetSprite();
 		AudioManager* audioManager = engine.GetAudioManager();
 		InputManager* inputManager = engine.GetInputManager();
@@ -165,6 +167,36 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			//================//
 			// 1. バックバッファをクリアし、描画コマンドの記録を開始する。
 			graphics->BeginDraw();
+
+			// ImGuiがマウスを使用している間は、スライダー操作などでカメラが動くのを防ぐ。
+			if (debugCamera != nullptr && inputManager != nullptr) {
+				debugCamera->Update(*inputManager, !ImGui::GetIO().WantCaptureMouse);
+			}
+
+			ImGui::Begin("Debug Camera");
+			if (debugCamera != nullptr) {
+				const Vector3& cameraPosition = debugCamera->GetPosition();
+				const Vector3& cameraTarget = debugCamera->GetTarget();
+				ImGui::TextUnformatted("MMB: Orbit");
+				ImGui::TextUnformatted("Shift + MMB: Pan");
+				ImGui::TextUnformatted("Ctrl + MMB / Wheel: Zoom");
+				ImGui::TextUnformatted("Numpad 1 / 3 / 7: Front / Right / Top");
+				ImGui::TextUnformatted("Ctrl + Numpad 1 / 3 / 7: Opposite View");
+				ImGui::TextUnformatted("Numpad 5: Perspective / Orthographic");
+				ImGui::TextUnformatted("Home: Reset Camera");
+				ImGui::Separator();
+				ImGui::Text("Position: %.2f, %.2f, %.2f",
+					cameraPosition.x, cameraPosition.y, cameraPosition.z);
+				ImGui::Text("Target: %.2f, %.2f, %.2f",
+					cameraTarget.x, cameraTarget.y, cameraTarget.z);
+				ImGui::Text("Distance: %.2f", debugCamera->GetDistance());
+				ImGui::Text("Projection: %s",
+					debugCamera->IsOrthographic() ? "Orthographic" : "Perspective");
+				if (ImGui::Button("Reset Camera")) {
+					debugCamera->Reset();
+				}
+			}
+			ImGui::End();
 
 			ImGui::Begin("Input State");
 			if (inputManager != nullptr) {
