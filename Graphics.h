@@ -10,6 +10,7 @@
 #include <string>
 
 class DirectXCommon;
+class Model;
 class PrimitiveDrawer;
 class Sprite;
 class TextureManager;
@@ -39,6 +40,10 @@ public:
 
     // 読み込んだテクスチャを指定するための番号を返す。
     int LoadTexture(const std::string& filePath);
+
+    // OBJを読み込み、そのモデルのGPUリソースを所有するModelを返す。
+    // 読み込みに失敗した場合はnullptrを返す。
+    std::unique_ptr<Model> CreateModel(const std::string& objFilePath);
 
     // 所有権はGraphicsにある。呼び出し側はポインタをdeleteしない。
     TextureManager* GetTextureManager() const { return textureManager_.get(); }
@@ -71,4 +76,6 @@ private:
     std::unique_ptr<Sprite> sprite_;
 
     bool isImGuiInitialized_ = false;
+    uint32_t windowWidth_ = 0;
+    uint32_t windowHeight_ = 0;
 };

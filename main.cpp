@@ -2,6 +2,7 @@
 #include "Engine.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
+#include "Model.h"
 #include "CommonTypes.h"
 #include "externals/imgui/imgui.h"
 #include "TriangleEffect.h" 
@@ -46,6 +47,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 		const int monsterBallTextureHandle = graphics->LoadTexture("Resources/monsterBall.png");
 		const int whiteTextureHandle = graphics->LoadTexture("Resources/White.png");
 
+		// GraphicsのFactoryでOBJを読み込み、Model自身に頂点・インデックスを所有させる。
+		std::unique_ptr<Model> cubeModel =
+			graphics->CreateModel("Resources/Models/cube.obj");
+
 		// ImGuiの選択番号とTextureManagerのハンドルを明確に分ける。
 		const int textureHandles[] = {
 			uvCheckerTextureHandle,
@@ -83,6 +88,17 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			{ 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f }
 		};
 
+		TransformData modelTransform = {
+			{ 0.75f, 0.75f, 0.75f },
+			{ 0.0f, 0.5f, 0.0f },
+			{ -1.5f, 0.0f, 0.0f }
+		};
+		Vector4 modelColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		UVTransform modelUVTransform = {
+			{ 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f }
+		};
+		int selectedModelTexture = 0;
+
 		OutputDebugStringA("Loop Start\n");
 
 		while (engine.ProcessMessage())
@@ -112,6 +128,21 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			ImGui::DragFloat2("Sphere UV Translate", &sphereUVTransform.translate.x, 0.01f, -10.0f, 10.0f);
 
 			ImGui::Combo("Sphere Texture", &selectedSphereTexture, textureNames, _countof(textureNames));
+			ImGui::End();
+
+			ImGui::Begin("OBJ Model Control");
+			if (cubeModel != nullptr) {
+				ImGui::Text("Vertices: %u", cubeModel->GetVertexCount());
+				ImGui::Text("Indices: %u", cubeModel->GetIndexCount());
+			}
+			ImGui::DragFloat3("Model Scale", &modelTransform.scale.x, 0.1f, 0.01f, 100.0f);
+			ImGui::SliderFloat3("Model Rotate", &modelTransform.rotate.x, -3.1415f, 3.1415f);
+			ImGui::DragFloat3("Model Translate", &modelTransform.translate.x, 0.1f);
+			ImGui::ColorEdit4("Model Color", &modelColor.x);
+			ImGui::Combo("Model Texture", &selectedModelTexture, textureNames, _countof(textureNames));
+			ImGui::DragFloat2("Model UV Scale", &modelUVTransform.scale.x, 0.01f, 0.01f, 10.0f);
+			ImGui::SliderFloat("Model UV Rotate", &modelUVTransform.rotate, -3.1415f, 3.1415f);
+			ImGui::DragFloat2("Model UV Translate", &modelUVTransform.translate.x, 0.01f, -10.0f, 10.0f);
 			ImGui::End();
 
 
@@ -171,6 +202,14 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			primitiveDrawer->DrawSphere(
 				sphereTransform, sphereColor, textureHandles[selectedSphereTexture],
 				sphereUVTransform);
+
+			if (cubeModel != nullptr) {
+				cubeModel->Draw(
+					modelTransform,
+					modelColor,
+					textureHandles[selectedModelTexture],
+					modelUVTransform);
+			}
 
 			sprite->Draw(
 				spriteTransform, spriteColor, textureHandles[selectedSpriteTexture],
