@@ -2,9 +2,11 @@
 
 struct TransformationMatrix
 {
-    // WVPは頂点位置を画面座標へ、Worldは法線をワールド座標へ変換する。
+    // WVPは頂点位置を画面座標へ、Worldは物体のワールド変換を表す。
     float4x4 WVP;
-    float4x4 World; 
+    float4x4 World;
+    // 非均一スケール後も法線を面に対して垂直に保つための逆転置行列。
+    float4x4 WorldInverseTranspose;
 };
 
 cbuffer gTransformationMatrix : register(b1)
@@ -20,9 +22,10 @@ VertexShaderOutput main(VertexShaderInput input)
     output.position = mul(input.position, gTransformationMatrixData.WVP);
     output.texcoord = input.texcoord;
     
-    // 法線をワールド空間に変換してピクセルシェーダーへ渡す。
-    // 拡大縮小で長さが変わる可能性があるためnormalizeする。
-    output.normal = normalize(mul(input.normal, (float3x3) gTransformationMatrixData.World));
+    // 通常のWorld行列ではなく逆転置行列を使い、X/Y/Zで異なる拡大率にも対応する。
+    output.normal = normalize(mul(
+        input.normal,
+        (float3x3) gTransformationMatrixData.WorldInverseTranspose));
     
     return output;
 }

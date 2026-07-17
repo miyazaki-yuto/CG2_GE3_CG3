@@ -4,14 +4,20 @@
 #include <filesystem>
 #include <chrono>
 #include <format>
-#ifdef USE_IMGUI
+
+// クラッシュダンプはDebug/Releaseの両方で利用するため、ImGuiとは独立して読み込む。
 #include <DbgHelp.h>
 #include <strsafe.h>
 #pragma comment(lib, "Dbghelp.lib")
-#include "externals/imgui/imgui.h"
-#include "externals/imgui/imgui_impl_win32.h"
+
+#ifdef _DEBUG
 #include <dxgidebug.h>
 #pragma comment(lib, "dxguid.lib")
+#endif
+
+#ifdef USE_IMGUI
+#include "externals/imgui/imgui.h"
+#include "externals/imgui/imgui_impl_win32.h"
 // ImGuiのメッセージハンドラーの宣言
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
@@ -45,6 +51,18 @@ LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 	switch (message)
 	{
+	case WM_SIZE:
+		if (engine != nullptr && wParam != SIZE_MINIMIZED) {
+			const uint32_t width = static_cast<uint32_t>(LOWORD(lParam));
+			const uint32_t height = static_cast<uint32_t>(HIWORD(lParam));
+			if (width > 0 && height > 0) {
+				// ドラッグ中はWM_SIZEが何度も届くため、値だけ保存してメッセージ処理後に1回反映する。
+				engine->pendingResizeWidth_ = width;
+				engine->pendingResizeHeight_ = height;
+				engine->hasPendingResize_ = true;
+			}
+		}
+		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
@@ -70,13 +88,15 @@ Engine::~Engine()
 		dxCommon_.reset();
 	}
 
-	// 以下のリークチェックは同じ
+	// DXGIのライブオブジェクト確認はデバッグ用SDKに依存するため、Debugビルドだけで行う。
+#ifdef _DEBUG
 	Microsoft::WRL::ComPtr<IDXGIDebug1> debug;
 	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(debug.GetAddressOf())))) {
 		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
 		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
 		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
 	}
+#endif
 }
 void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 {
@@ -127,6 +147,9 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 		OutputDebugStringA((audioManager_->GetLastError() + "\n").c_str());
 		audioManager_.reset();
 	}
+
+	// 初期化時間を最初のDeltaTimeへ含めないよう、全システムの準備完了後に計測を開始する。
+	gameTimer_.Reset();
 }
 
 bool Engine::ProcessMessage()
@@ -143,11 +166,26 @@ bool Engine::ProcessMessage()
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+	ApplyPendingResize();
 	if (inputManager_ != nullptr) {
 		inputManager_->Update();
 	}
+	// メッセージ処理を含め、前フレームから実際に経過した時間を確定する。
+	gameTimer_.Tick();
 	// 終了メッセージが来ていなければ true を返す（ゲーム続行）
 	return true;
+}
+
+void Engine::ApplyPendingResize()
+{
+	if (!hasPendingResize_ || dxCommon_ == nullptr || graphics_ == nullptr) {
+		return;
+	}
+
+	// SwapChainと深度バッファを先に作り直し、その後で投影行列の画面比率を更新する。
+	dxCommon_->Resize(pendingResizeWidth_, pendingResizeHeight_);
+	graphics_->Resize(pendingResizeWidth_, pendingResizeHeight_);
+	hasPendingResize_ = false;
 }
 
 LONG WINAPI Engine::ExportDump(EXCEPTION_POINTERS* exception)

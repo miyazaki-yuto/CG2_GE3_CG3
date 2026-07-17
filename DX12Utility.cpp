@@ -3,6 +3,7 @@
 #include <cassert>
 #include <format>
 #include <ostream>
+#include <stdexcept>
 #include <vector>
 #include <windows.h>
 #include "externals/DirectXTex/d3dx12.h"
@@ -69,7 +70,45 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateBufferResource(
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(resource.GetAddressOf()));
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to create an upload buffer resource.");
+    }
     assert(SUCCEEDED(hr));
+    return resource;
+}
+
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBufferResource(
+    ID3D12Device* device,
+    size_t sizeInBytes) {
+    assert(device != nullptr);
+    if (sizeInBytes == 0) {
+        throw std::invalid_argument("Default buffer size must be greater than zero.");
+    }
+
+    // DEFAULTヒープはCPUからMapできない代わりに、GPUが効率よく読み出せる。
+    D3D12_HEAP_PROPERTIES heapProperties{};
+    heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    D3D12_RESOURCE_DESC resourceDesc{};
+    resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    resourceDesc.Width = sizeInBytes;
+    resourceDesc.Height = 1;
+    resourceDesc.DepthOrArraySize = 1;
+    resourceDesc.MipLevels = 1;
+    resourceDesc.SampleDesc.Count = 1;
+    resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+    const HRESULT hr = device->CreateCommittedResource(
+        &heapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &resourceDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(resource.GetAddressOf()));
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to create a default buffer resource.");
+    }
     return resource;
 }
 
@@ -102,6 +141,9 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureResource(
         D3D12_RESOURCE_STATE_COPY_DEST,
         nullptr,
         IID_PPV_ARGS(resource.GetAddressOf()));
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to create a texture resource.");
+    }
     assert(SUCCEEDED(hr));
     return resource;
 }
@@ -138,6 +180,9 @@ Microsoft::WRL::ComPtr<ID3D12Resource> UploadTextureData(
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(intermediateResource.GetAddressOf()));
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to create a texture upload resource.");
+    }
     assert(SUCCEEDED(hr));
 
     // コピーコマンドをコマンドリストへ積む（この時点ではまだGPUは実行していない）。
@@ -178,6 +223,9 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
     const HRESULT hr = device->CreateDescriptorHeap(
         &descriptorHeapDesc,
         IID_PPV_ARGS(descriptorHeap.GetAddressOf()));
+    if (FAILED(hr)) {
+        throw std::runtime_error("Failed to create a descriptor heap.");
+    }
     assert(SUCCEEDED(hr));
     return descriptorHeap;
 }

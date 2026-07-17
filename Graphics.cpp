@@ -3,6 +3,7 @@
 #include "DX12Utility.h"
 #include "DebugCamera.h"
 #include "DirectXCommon.h"
+#include "LightingManager.h"
 #include "Model.h"
 #include "PrimitiveDrawer.h"
 #include "Sprite.h"
@@ -61,6 +62,8 @@ void Graphics::Initialize(
     // 三角形・球・OBJモデルが同じ視点を共有できるよう、描画クラスより先に作る。
     debugCamera_ = std::make_unique<DebugCamera>();
     debugCamera_->Initialize(windowWidth_, windowHeight_);
+    lightingManager_ = std::make_unique<LightingManager>();
+    lightingManager_->Initialize(dxCommon_);
     CreateRenderers(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     InitializeImGui(hWnd);
 
@@ -258,15 +261,15 @@ void Graphics::CreateRenderers(uint32_t width, uint32_t height) {
     primitiveDrawer_->Initialize(
         dxCommon_,
         debugCamera_.get(),
+        lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
-        object3dPipelineState_.Get(),
-        width,
-        height);
+        object3dPipelineState_.Get());
 
     sprite_ = std::make_unique<Sprite>();
     sprite_->Initialize(
         dxCommon_,
+        lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
         spritePipelineState_.Get(),
@@ -277,6 +280,9 @@ void Graphics::CreateRenderers(uint32_t width, uint32_t height) {
 void Graphics::BeginDraw() {
     // バックバッファの遷移とクリアはDirectXCommonへ委譲する。
     dxCommon_->BeginDraw();
+
+    // 全描画で共有するライトを、このフレーム用の定数領域へ1回だけ書き込む。
+    lightingManager_->BeginFrame();
 
     // Drawの呼び出し順を内部スロット0から割り当て直す。
     primitiveDrawer_->BeginFrame();
@@ -301,11 +307,25 @@ void Graphics::EndDraw() {
         ImGui::GetDrawData(), dxCommon_->GetCommandList());
 #endif
 
-    // コマンド実行・Present・GPU待機・次フレーム用Resetを行う。
+    // コマンドを実行し、次に再利用するフレーム領域だけ必要に応じて待つ。
     dxCommon_->EndDraw();
 
-    // GPUコピー完了後なので、テクスチャ転送用中間バッファを解放できる。
-    textureManager_->ReleaseIntermediateResources();
+    // テクスチャ転送用中間バッファは、対応するGPUフェンスが完了したものだけ解放する。
+    textureManager_->ReleaseIntermediateResources(
+        dxCommon_->GetLastSubmittedFenceValue(),
+        dxCommon_->GetCompletedFenceValue());
+}
+
+void Graphics::Resize(uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0 ||
+        (width == windowWidth_ && height == windowHeight_)) {
+        return;
+    }
+
+    windowWidth_ = width;
+    windowHeight_ = height;
+    debugCamera_->Resize(width, height);
+    sprite_->Resize(width, height);
 }
 
 void Graphics::InitializeImGui(HWND hWnd) {
@@ -362,11 +382,10 @@ std::unique_ptr<Model> Graphics::CreateModel(const std::string& objFilePath) {
     if (!model->Initialize(
         dxCommon_,
         debugCamera_.get(),
+        lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
         object3dPipelineState_.Get(),
-        windowWidth_,
-        windowHeight_,
         objFilePath)) {
         const std::string message = model->GetLastError() + "\n";
         OutputDebugStringA(message.c_str());

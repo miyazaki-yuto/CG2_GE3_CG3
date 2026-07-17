@@ -77,10 +77,11 @@ void TriangleEffect::Reset() {
     isExecuting_ = true;
 }
 
-void TriangleEffect::Update() {
+void TriangleEffect::Update(float deltaTime) {
     if (!isExecuting_) return;
 
-    float deltaTime = 1.0f / 60.0f;
+    // 固定の1/60秒ではなく実測時間を加算し、FPSに依存しないアニメーションにする。
+    deltaTime = (std::max)(0.0f, deltaTime);
     currentTime_ += deltaTime;
 
     for (size_t i = 0; i < petals_.size(); ++i) {

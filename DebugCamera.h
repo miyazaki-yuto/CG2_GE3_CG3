@@ -20,6 +20,9 @@ public:
     // 画面サイズを受け取り、射影行列を含むカメラ行列を初期化する。
     void Initialize(uint32_t windowWidth, uint32_t windowHeight);
 
+    // カメラ位置は維持したまま、アスペクト比だけを新しい画面サイズへ合わせる。
+    void Resize(uint32_t windowWidth, uint32_t windowHeight);
+
     // InputManagerが収集した1フレーム分の入力をカメラへ反映する。
     // allowMouseControl=falseのときは、ImGui操作中にカメラが動かないようマウス入力だけ無視する。
     void Update(const InputManager& inputManager, bool allowMouseControl = true);

@@ -22,6 +22,12 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateBufferResource(
     ID3D12Device* device,
     size_t sizeInBytes);
 
+// 頂点・インデックスなど、作成後にCPUから変更しないバッファをGPU専用領域へ作る。
+// データのコピーはDirectXCommonの共有Upload領域から行うため、ここでは本体だけを作成する。
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBufferResource(
+    ID3D12Device* device,
+    size_t sizeInBytes);
+
 // GPU専用のテクスチャ本体をCOPY_DEST状態で作成する。
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureResource(
     ID3D12Device* device,

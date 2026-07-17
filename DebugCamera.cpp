@@ -44,6 +44,14 @@ void DebugCamera::Initialize(uint32_t windowWidth, uint32_t windowHeight) {
     Reset();
 }
 
+void DebugCamera::Resize(uint32_t windowWidth, uint32_t windowHeight) {
+    assert(windowWidth > 0);
+    assert(windowHeight > 0);
+    windowWidth_ = windowWidth;
+    windowHeight_ = windowHeight;
+    UpdateMatrices();
+}
+
 void DebugCamera::Reset() {
     target_ = { 0.0f, 0.0f, 0.0f };
     yaw_ = 0.0f;
