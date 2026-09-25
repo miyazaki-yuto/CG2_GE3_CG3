@@ -147,6 +147,7 @@
     <ClCompile Include="DirectXCommon.cpp" />
     <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="DX12Utility.cpp" />
+    <ClCompile Include="DebugSelfTests.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Editor.cpp" />
     <ClCompile Include="GameObject.cpp" />
@@ -187,6 +188,7 @@
     <ClCompile Include="PrimitiveRendererComponent.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="SceneSerializer.cpp" />
+    <ClCompile Include="SampleScene.cpp" />
     <ClCompile Include="Sprite.cpp" />
     <ClCompile Include="SpriteRendererComponent.cpp" />
     <ClCompile Include="TextureManager.cpp" />
@@ -204,6 +206,7 @@
     <ClInclude Include="DebugCamera.h" />
     <ClInclude Include="DirectXCommon.h" />
     <ClInclude Include="DX12Utility.h" />
+    <ClInclude Include="DebugSelfTests.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="Editor.h" />
     <ClInclude Include="GameTimer.h" />
@@ -231,6 +234,7 @@
     <ClInclude Include="RendererComponent.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneSerializer.h" />
+    <ClInclude Include="SampleScene.h" />
     <ClInclude Include="Sprite.h" />
     <ClInclude Include="SpriteRendererComponent.h" />
     <ClInclude Include="TextureManager.h" />
