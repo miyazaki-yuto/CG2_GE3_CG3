@@ -6,6 +6,7 @@
 #include "DebugCamera.h"
 #include "DebugSelfTests.h"
 #include "Editor.h"
+#include "Graphics.h"
 #include "InputManager.h"
 #include "LightingManager.h"
 #include "LightComponent.h"
@@ -29,6 +30,7 @@
 #include <utility>
 
 #ifdef _DEBUG
+#include <dxgi1_6.h>
 #include <dxgidebug.h>
 #pragma comment(lib, "dxguid.lib")
 #endif
