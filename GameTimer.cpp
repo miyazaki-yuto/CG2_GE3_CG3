@@ -4,7 +4,7 @@
 
 namespace {
 
-// ブレークポイントやウィンドウ移動の後に、物体が一瞬で遠くへ飛ばないよう上限を設ける。
+// ブレークポイントやウィンドウ移動の後に、物体が一瞬で遠くへ飛ばないよう上限を設ける
 constexpr float kMaximumDeltaTime = 0.1f;
 
 } // namespace
@@ -17,7 +17,7 @@ void GameTimer::Reset() {
 }
 
 void GameTimer::Tick() {
-    // Reset前にTickされた場合も、安全に初期化して0秒を返す。
+    // Reset前にTickされた場合も、安全に初期化して0秒を返す
     if (!isInitialized_) {
         Reset();
         return;
@@ -28,7 +28,7 @@ void GameTimer::Tick() {
         std::chrono::duration<float>(currentTime - previousTime_).count();
     previousTime_ = currentTime;
 
-    // steady_clockは逆行しないが、異常値に備えて0～0.1秒へ制限する。
+    // steady_clockは逆行しないが、異常値に備えて0～0.1秒へ制限する
     deltaTime_ = (std::clamp)(elapsedSeconds, 0.0f, kMaximumDeltaTime);
     totalTime_ += static_cast<double>(deltaTime_);
 }

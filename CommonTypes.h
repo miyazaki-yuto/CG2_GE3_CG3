@@ -19,6 +19,8 @@ struct TextureVertexData {
     Vector4 position;
     Vector2 texcoord;
     Vector3 normal;
+    // xyzは接線、wはBitangentを復元するための向き（+1／-1）。
+    Vector4 tangent;
 };
 
 struct TransformData {
@@ -55,18 +57,26 @@ struct VertexData {
     Vector4 position;
     float uv[2];
     Vector3 normal;
+    Vector4 tangent;
 };
 
 struct Color4 {
     float r, g, b, a;
 };
 
-struct Material {
+struct MaterialConstants {
     Color4 color;                  // 16バイト
     int32_t enableLighting;        // 4バイト
     float padding[3];              // 12バイト（16バイト境界に揃える）
     Matrix4x4 uvTransform;         // 64バイト（テクスチャ座標の変換行列）
+    Color4 specularColor;          // MTLのKs。鏡面反射の色と強さ
+    float specularShininess;       // MTLのNs。0ならシーン共通値を使用
+    int32_t normalMapEnabled;      // 1ならt2のNormal Mapを使用
+    float metallic;                // PBRの金属度。0=非金属、1=金属
+    float roughness;               // PBRの粗さ。0=鏡面、1=粗い表面
 };
+
+static_assert(sizeof(MaterialConstants) == 128);
 
 struct DirectionalLight
 {
@@ -89,13 +99,93 @@ struct PointLight
     float padding;
 };
 
+// モデル表面で反射した光を、弱い色付きPoint Lightとして近似する。
+// GPU側のBounceLightと同じ並び・サイズにして定数バッファへそのままコピーする。
+struct BounceLight
+{
+    Color4 color;
+    Vector3 position;
+    float intensity;
+    float radius;
+    float decay;
+    int32_t enabled;
+    float padding;
+};
+
+// Scene-wide diffuse and specular lighting model.
+// Values must match the kLightingMode* constants in Object3d.hlsli.
+enum class LightingMode : int32_t
+{
+    Lambert = 0,
+    HalfLambert = 1,
+    Current = 2,
+    PBR = 3
+};
+
+// HDR Scene Textureを画面表示できる範囲へ圧縮する方式。
+enum class ToneMappingMode : int32_t
+{
+    None = 0,
+    Reinhard = 1,
+    ACES = 2
+};
+
+// 画面全体へ適用するアンチエイリアス方式。
+enum class AntiAliasingMode : int32_t
+{
+    None = 0,
+    FXAA = 1,
+    TAA = 2,
+    MAA = 3
+};
+
+// GPU定数バッファは固定長配列にする。
+// CPU側とObject3d.hlsli側で、この個数を必ず一致させること。
+constexpr uint32_t kMaxDirectionalLights = 4;
+constexpr uint32_t kMaxPointLights = 16;
+constexpr uint32_t kMaxBounceLights = 3;
+
 // b2へまとめて渡す、シーン共通のライトデータ。
 struct LightingData
 {
-    DirectionalLight directionalLight;
-    PointLight pointLight;
+    DirectionalLight directionalLights[kMaxDirectionalLights];
+    PointLight pointLights[kMaxPointLights];
+    // スペキュラ計算では「表面からカメラへ向かう方向」が必要になる。
+    Vector3 cameraPosition;
+    float specularStrength; // ハイライトの明るさ。0でスペキュラを無効化する。
+    float specularShininess; // 大きいほどハイライトが小さく鋭くなる。
+    int32_t lightingMode;
+    float padding[2];
+    // Sky Sphere画像を経緯度環境マップとして利用する簡易IBL設定。
+    float environmentIntensity;
+    float environmentRotation;
+    int32_t environmentEnabled;
+    float environmentPadding;
+    // Directional Light shadow data. The matrix uses the same row-vector
+    // convention as the rest of the renderer.
+    Matrix4x4 directionalShadowViewProjections[4];
+    Vector4 directionalShadowCascadeSplits;
+    Vector2 directionalShadowTexelSize;
+    float directionalShadowBias;
+    int32_t directionalShadowEnabled;
+    int32_t directionalShadowLightIndex;
+    int32_t directionalShadowCascadeCount;
+    float directionalShadowPadding[2];
+    Vector3 pointShadowPosition;
+    float pointShadowNearClip;
+    float pointShadowFarClip;
+    float pointShadowBias;
+    float pointShadowTexelSize;
+    int32_t pointShadowEnabled;
+    int32_t pointShadowLightIndex;
+    float pointShadowPadding[3];
+    BounceLight bounceLights[kMaxBounceLights];
+    int32_t bounceLightCount;
+    float bounceLightPadding[3];
 };
 
 static_assert(sizeof(DirectionalLight) == 48);
 static_assert(sizeof(PointLight) == 48);
-static_assert(sizeof(LightingData) == 96);
+static_assert(sizeof(BounceLight) == 48);
+// HLSLのLightBufferも同じ1264バイトの配置にする。
+static_assert(sizeof(LightingData) == 1520);

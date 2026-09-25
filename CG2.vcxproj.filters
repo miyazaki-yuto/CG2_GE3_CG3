@@ -1,6 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+	<ClCompile Include="AssetManager.cpp">
+	  <Filter>ソース ファイル\Engine</Filter>
+	</ClCompile>
+	<ClCompile Include="PrefabManager.cpp">
+	  <Filter>ソース ファイル\Engine</Filter>
+	</ClCompile>
+	<ClCompile Include="PrefabInstanceComponent.cpp">
+	  <Filter>ソース ファイル\Engine</Filter>
+	</ClCompile>
+	<ClCompile Include="PlayModeManager.cpp">
+	  <Filter>ソース ファイル\Engine\Engine</Filter>
+	</ClCompile>
+    <ClCompile Include="CameraComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
     <Filter Include="ヘッダー ファイル">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
@@ -66,10 +81,34 @@
     <ClCompile Include="Engine.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Editor.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
     <ClCompile Include="GameTimer.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="GameObject.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneSerializer.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="TransformComponent.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
     <ClCompile Include="Graphics.cpp">
+      <Filter>ソース ファイル\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderManager.cpp">
+      <Filter>ソース ファイル\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Material.cpp">
+      <Filter>ソース ファイル\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderGraphEditor.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="LightingManager.cpp">
@@ -80,9 +119,6 @@
     </ClCompile>
     <ClCompile Include="Matrix4x4.cpp">
       <Filter>ソース ファイル\Engine\Math</Filter>
-    </ClCompile>
-    <ClCompile Include="TriangleEffect.cpp">
-      <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="DirectXCommon.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
@@ -108,11 +144,38 @@
     <ClCompile Include="Model.cpp">
       <Filter>ソース ファイル\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="LightComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelRendererComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="PrimitiveRendererComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="SpriteRendererComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+	<ClInclude Include="AssetManager.h">
+	  <Filter>ヘッダー ファイル\Engine</Filter>
+	</ClInclude>
+	<ClInclude Include="PrefabManager.h">
+	  <Filter>ヘッダー ファイル\Engine</Filter>
+	</ClInclude>
+	<ClInclude Include="PrefabInstanceComponent.h">
+	  <Filter>ヘッダー ファイル\Engine</Filter>
+	</ClInclude>
+	<ClInclude Include="PlayModeManager.h">
+	  <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+	</ClInclude>
+    <ClInclude Include="CameraComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Matrix4x4.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -155,6 +218,15 @@
     <ClInclude Include="Graphics.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="ShaderManager.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderGraphEditor.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="LightingManager.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
     </ClInclude>
@@ -173,11 +245,29 @@
     <ClInclude Include="Engine.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Editor.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
     <ClInclude Include="GameTimer.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="TriangleEffect.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="LightComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Component.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneSerializer.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="TransformComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
     <ClInclude Include="AudioManager.h">
       <Filter>ヘッダー ファイル</Filter>
@@ -187,6 +277,18 @@
     </ClInclude>
     <ClInclude Include="Model.h">
       <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="RendererComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelRendererComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="PrimitiveRendererComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="SpriteRendererComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -201,7 +303,26 @@
     <Text Include="externals\imgui\LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="IMPLEMENTED_FEATURES.md" />
     <None Include="Object3d.hlsli">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="ShadowMap.VS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="ToneMapping.PS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="ToneMapping.VS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="Resources\Shaders\StandardObject3D.shader.json">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="Resources\Shaders\UnlitTint.shader.json">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="Resources\Shaders\UnlitTint.PS.hlsl">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </None>
     <None Include="Resources\Models\cube.obj" />

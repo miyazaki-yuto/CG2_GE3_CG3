@@ -1,7 +1,6 @@
 #pragma once
 
 #include <d3d12.h>
-#include <dxcapi.h>
 #include <wrl.h>
 #include "externals/DirectXTex/DirectXTex.h"
 #include <cstddef>
@@ -47,14 +46,5 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
     D3D12_DESCRIPTOR_HEAP_TYPE heapType,
     UINT numDescriptors,
     bool shaderVisible);
-
-// HLSLファイルをDXCでコンパイルし、描画PSOに設定できるバイトコードを返す。
-Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(
-    const std::wstring& filePath,
-    const wchar_t* profile,
-    IDxcUtils* dxcUtils,
-    IDxcCompiler3* dxcCompiler,
-    IDxcIncludeHandler* includeHandler,
-    std::ostream& logStream);
 
 } // namespace DX12Utility

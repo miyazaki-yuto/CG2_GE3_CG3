@@ -32,7 +32,9 @@ public:
         LightingManager* lightingManager,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
-        ID3D12PipelineState* pipelineState);
+        ID3D12PipelineState* pipelineState,
+        ID3D12RootSignature* shadowRootSignature,
+        ID3D12PipelineState* shadowPipelineState);
 
     // Graphics::BeginDrawから呼び、今フレームの自動採番を0に戻す。
     void BeginFrame();
@@ -40,15 +42,22 @@ public:
     // indexは内部で自動採番する。呼び出し側は描画データだけを渡す。
     void DrawTriangle(
         const TextureVertexData* vertices,
-        const TransformData& transform,
+        const Matrix4x4& worldMatrix,
         const Vector4& color,
         int textureHandle,
         const UVTransform& uvTransform);
     void DrawSphere(
-        const TransformData& transform,
+        const Matrix4x4& worldMatrix,
         const Vector4& color,
         int textureHandle,
         const UVTransform& uvTransform);
+    void DrawTriangleShadow(
+        const TextureVertexData* vertices,
+        const Matrix4x4& worldMatrix,
+        const Matrix4x4& lightViewProjection);
+    void DrawSphereShadow(
+        const Matrix4x4& worldMatrix,
+        const Matrix4x4& lightViewProjection);
 
 private:
     static constexpr uint32_t kTriangleVertexCount = 3;
@@ -58,7 +67,8 @@ private:
 
     void CreateTriangleResources();
     void CreateSphereResources();
-    void SetCommonDrawState();
+    void SetCommonDrawState(int fallbackTextureHandle);
+    void SetShadowDrawState();
 
     // 所有しない参照。生成・破棄の順序は Graphics が管理する。
     DirectXCommon* dxCommon_ = nullptr;
@@ -68,6 +78,8 @@ private:
     // 共通の設定を共有するためComPtrで参照カウントを保持する。
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> shadowRootSignature_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> shadowPipelineState_;
 
     // ----- 三角形群用リソース -----
     // インデックスは全三角形で共有し、動的頂点はフレーム用Upload領域からDrawごとに確保する。

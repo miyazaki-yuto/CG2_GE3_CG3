@@ -28,6 +28,16 @@ VertexShaderOutput main(VertexShaderInput input)
     output.normal = normalize(mul(
         input.normal,
         (float3x3) gTransformationMatrixData.WorldInverseTranspose));
+
+    // Tangentは面に沿う方向なのでWorld行列で変換し、PS側でNormalと直交化する。
+    float3 worldTangent = mul(
+        input.tangent.xyz,
+        (float3x3) gTransformationMatrixData.World);
+    float tangentLengthSquared = dot(worldTangent, worldTangent);
+    worldTangent = tangentLengthSquared > 0.000001f
+        ? worldTangent * rsqrt(tangentLengthSquared)
+        : float3(1.0f, 0.0f, 0.0f);
+    output.tangent = float4(worldTangent, input.tangent.w);
     
     return output;
 }

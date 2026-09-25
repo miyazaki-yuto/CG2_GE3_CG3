@@ -96,11 +96,18 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+	<ClCompile Include="AssetManager.cpp" />
+	<ClCompile Include="PrefabManager.cpp" />
+	<ClCompile Include="PrefabInstanceComponent.cpp" />
+	<ClCompile Include="PlayModeManager.cpp" />
+    <ClCompile Include="CameraComponent.cpp" />
     <ClCompile Include="DebugCamera.cpp" />
     <ClCompile Include="DirectXCommon.cpp" />
     <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="DX12Utility.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="Editor.cpp" />
+    <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="GameTimer.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -124,24 +131,41 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Graphics.cpp" />
+    <ClCompile Include="ShaderManager.cpp" />
+    <ClCompile Include="Material.cpp" />
+    <ClCompile Include="ShaderGraphEditor.cpp" />
     <ClCompile Include="InputManager.cpp" />
     <ClCompile Include="LightingManager.cpp" />
+    <ClCompile Include="LightComponent.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Matrix4x4.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="ModelRendererComponent.cpp" />
     <ClCompile Include="PrimitiveDrawer.cpp" />
+    <ClCompile Include="PrimitiveRendererComponent.cpp" />
+    <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="SceneSerializer.cpp" />
     <ClCompile Include="Sprite.cpp" />
+    <ClCompile Include="SpriteRendererComponent.cpp" />
     <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="TriangleEffect.cpp" />
+    <ClCompile Include="TransformComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
+	<ClInclude Include="AssetManager.h" />
+	<ClInclude Include="PrefabManager.h" />
+	<ClInclude Include="PrefabInstanceComponent.h" />
+	<ClInclude Include="PlayModeManager.h" />
+    <ClInclude Include="CameraComponent.h" />
     <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="Component.h" />
     <ClInclude Include="AudioManager.h" />
     <ClInclude Include="DebugCamera.h" />
     <ClInclude Include="DirectXCommon.h" />
     <ClInclude Include="DX12Utility.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="Editor.h" />
     <ClInclude Include="GameTimer.h" />
+    <ClInclude Include="GameObject.h" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
     <ClInclude Include="externals\imgui\imgui_impl_dx12.h" />
@@ -151,25 +175,37 @@
     <ClInclude Include="externals\imgui\imstb_textedit.h" />
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics.h" />
+    <ClInclude Include="ShaderManager.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="ShaderGraphEditor.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="LightingManager.h" />
+    <ClInclude Include="LightComponent.h" />
     <ClInclude Include="Matrix4x4.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="ModelRendererComponent.h" />
     <ClInclude Include="PrimitiveDrawer.h" />
+    <ClInclude Include="PrimitiveRendererComponent.h" />
+    <ClInclude Include="RendererComponent.h" />
+    <ClInclude Include="Scene.h" />
+    <ClInclude Include="SceneSerializer.h" />
     <ClInclude Include="Sprite.h" />
+    <ClInclude Include="SpriteRendererComponent.h" />
     <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="TriangleEffect.h" />
+    <ClInclude Include="TransformComponent.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Object3d.PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
     </FxCompile>
     <FxCompile Include="Object3d.VS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
@@ -179,6 +215,7 @@
     <Text Include="externals\imgui\LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="IMPLEMENTED_FEATURES.md" />
     <None Include="Resources\Models\cube.obj" />
     <None Include="Resources\bgm.wav" />
   </ItemGroup>
@@ -189,6 +226,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Object3d.hlsli" />
+    <None Include="ShadowMap.VS.hlsl" />
+    <None Include="ToneMapping.PS.hlsl" />
+    <None Include="ToneMapping.VS.hlsl" />
+    <None Include="Resources\Shaders\StandardObject3D.shader.json" />
+    <None Include="Resources\Shaders\UnlitTint.shader.json" />
+    <None Include="Resources\Shaders\UnlitTint.PS.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

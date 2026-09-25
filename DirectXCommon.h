@@ -33,6 +33,10 @@ public:
     void BeginDraw();
     void EndDraw();
 
+    // Off-screen rendering returns to these SwapChain bindings before ImGui.
+    void BindSwapChainRenderTarget();
+    void SetViewportAndScissor(uint32_t width, uint32_t height);
+
     // ウィンドウのクライアント領域に合わせて、SwapChainと深度バッファを作り直す。
     void Resize(uint32_t width, uint32_t height);
 
@@ -58,7 +62,11 @@ public:
     IDXGISwapChain4* GetSwapChain() const { return swapChain_.Get(); }
     DXGI_FORMAT GetBackBufferFormat() const { return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; }
     DXGI_FORMAT GetDepthBufferFormat() const { return DXGI_FORMAT_D24_UNORM_S8_UINT; }
+    ID3D12Resource* GetDepthBuffer() const { return depthBuffer_.Get(); }
     ID3D12CommandQueue* GetCommandQueue() const { return commandQueue_.Get(); }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView() const {
+        return dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+    }
     ID3D12CommandAllocator* GetCommandAllocator() const {
         return frameResources_[currentFrameIndex_].commandAllocator.Get();
     }

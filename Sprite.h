@@ -40,7 +40,7 @@ public:
 
     // 描画に必要な座標・色・テクスチャ・UV変換を、Drawの引数だけで指定する。
     void Draw(
-        const TransformData& transform,
+        const Matrix4x4& worldMatrix,
         const Vector4& color,
         int textureHandle,
         const UVTransform& uvTransform);

@@ -1,0 +1,14 @@
+{
+  "name": "StandardObject3D",
+  "vertexShader": "../../Object3d.VS.hlsl",
+  "pixelShader": "../../Object3d.PS.hlsl",
+  "vertexEntry": "main",
+  "pixelEntry": "main",
+  "vertexProfile": "vs_6_0",
+  "pixelProfile": "ps_6_0",
+  "blend": "Alpha",
+  "cull": "Back",
+  "depthTest": true,
+  "depthWrite": true,
+  "parameters": []
+}

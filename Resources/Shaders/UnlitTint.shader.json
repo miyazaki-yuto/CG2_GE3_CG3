@@ -1,0 +1,23 @@
+{
+  "name": "UnlitTint",
+  "vertexShader": "../../Object3d.VS.hlsl",
+  "pixelShader": "UnlitTint.PS.hlsl",
+  "blend": "Alpha",
+  "cull": "Back",
+  "depthTest": true,
+  "depthWrite": true,
+  "parameters": [
+    {
+      "name": "Tint",
+      "type": "color",
+      "offset": 0,
+      "default": [1.0, 1.0, 1.0, 1.0]
+    },
+    {
+      "name": "Brightness",
+      "type": "float",
+      "offset": 16,
+      "default": 1.0
+    }
+  ]
+}

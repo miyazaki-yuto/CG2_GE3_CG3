@@ -81,7 +81,7 @@ void Sprite::BeginFrame() {
 }
 
 void Sprite::Draw(
-    const TransformData& transform,
+    const Matrix4x4& worldMatrix,
     const Vector4& color,
     int textureHandle,
     const UVTransform& uvTransform) {
@@ -111,15 +111,18 @@ void Sprite::Draw(
     vertexBufferView.StrideInBytes = sizeof(TextureVertexData);
 
     DynamicBufferAllocation materialAllocation = dxCommon_->AllocateDynamicBuffer(
-        sizeof(Material), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-    auto* material = static_cast<Material*>(materialAllocation.cpuAddress);
+        sizeof(MaterialConstants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    auto* material = static_cast<MaterialConstants*>(materialAllocation.cpuAddress);
     *material = {};
     material->color = { color.x, color.y, color.z, color.w };
     material->enableLighting = 0;
     material->uvTransform = MakeUVTransformMatrix(uvTransform);
+    // Spriteはライティングしないが、CPU/HLSLのMaterialレイアウトを統一しておく。
+    material->specularColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+    material->specularShininess = 0.0f;
+    material->metallic = 0.0f;
+    material->roughness = 0.5f;
 
-    const Matrix4x4 worldMatrix = MakeAffineMatrix(
-        transform.scale, transform.rotate, transform.translate);
     const Matrix4x4 orthographicMatrix = MakeOrthographicMatrix(
         0.0f,
         0.0f,
@@ -157,6 +160,18 @@ void Sprite::Draw(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
     commandList->SetGraphicsRootConstantBufferView(
         3, lightingManager_->GetLightingGpuAddress());
+    commandList->SetGraphicsRootDescriptorTable(
+        4, textureManager_->GetDirectionalShadowSrvHandleGPU());
+    commandList->SetGraphicsRootDescriptorTable(
+        5, textureManager_->GetSrvHandleGPU(textureHandle));
+    const int environmentTextureHandle =
+        lightingManager_->GetEnvironmentTextureHandle() >= 0
+        ? lightingManager_->GetEnvironmentTextureHandle()
+        : textureHandle;
+    commandList->SetGraphicsRootDescriptorTable(
+        6, textureManager_->GetSrvHandleGPU(environmentTextureHandle));
+    commandList->SetGraphicsRootDescriptorTable(
+        7, textureManager_->GetPointShadowSrvHandleGPU());
 
     // 4頂点を6個のインデックスで参照し、2枚の三角形として描画する。
     commandList->DrawIndexedInstanced(kIndexCount, 1, 0, 0, 0);

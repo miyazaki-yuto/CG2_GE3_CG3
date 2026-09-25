@@ -1,6 +1,8 @@
 #include "Engine.h"
+#include "AssetManager.h"
 #include "AudioManager.h"
 #include "InputManager.h"
+#include "PrefabManager.h"
 #include <filesystem>
 #include <chrono>
 #include <format>
@@ -72,7 +74,13 @@ Engine::~Engine()
 	// SourceVoiceを先に止めてから、描画関連とDirectX 12を破棄する。
 	audioManager_.reset();
 
-	// 依存する順に破棄する: Graphics → DirectXCommon。
+	prefabManager_.reset();
+
+	// AssetManagerのshared_ptr<Model>はGraphicsのDirectXリソースを参照する。
+	// Graphicsより先にキャッシュを破棄して、寿命の逆転を防ぐ。
+	assetManager_.reset();
+
+	// 依存する順に破棄する Graphics → DirectXCommon。
 	if (graphics_) {
 		// Graphics のリソース解放前に、GPU処理の完全な完了を待つ
 		graphics_.reset();
@@ -105,7 +113,7 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 	std::string dateString = std::format("{:%Y%m%d_%H%M%S}", localTime);
 	logStream_.open(std::format("logs/{}.log", dateString));
 
-	// ウィンドウクラスの登録: OSがメッセージをWindowProcへ送るための設定。
+	// ウィンドウクラスの登録: OSがメッセージをWindowProcへ送るための設定
 	WNDCLASS wc{};
 	wc.lpfnWndProc = WindowProc;
 	wc.lpszClassName = L"CG2WindowClass";
@@ -122,35 +130,44 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 		wrc.right - wrc.left, wrc.bottom - wrc.top,
 		nullptr, nullptr, hInstance, this);
 
-	// キーボードとマウスは作成したウィンドウに対して初期化する。
+	// キーボードとマウスは作成したウィンドウに対して初期化する
 	inputManager_ = std::make_unique<InputManager>();
 	inputManager_->Initialize(hWnd_);
 
 	ShowWindow(hWnd_, nCmdShow);
 
-	// DirectXCommonを先に作り、Graphicsが必要とするDevice/CommandListを用意する。
+	// DirectXCommonを先に作り、Graphicsが必要とするDevice/CommandListを用意する
 	dxCommon_ = std::make_unique<DirectXCommon>();
 	dxCommon_->Initialize(hWnd_, kWindowWidth_, kWindowHeight_);
 
-	// GraphicsはDirectXCommonを借りて、PSO・テクスチャ・描画クラスを初期化する。
+	// GraphicsはDirectXCommonを借りて、PSO・テクスチャ・描画クラスを初期化する
 	graphics_ = std::make_unique<Graphics>();
 	graphics_->Initialize(dxCommon_.get(), hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
 
-	// XAudio2はDirectX 12とは独立したシステムだが、Engineが寿命をまとめて管理する。
+	// モデル・テクスチャは以降、ファイルパスではなくAssetManagerのGUIDで参照する
+	assetManager_ = std::make_unique<AssetManager>();
+	if (!assetManager_->Initialize(graphics_.get(), "Resources")) {
+		OutputDebugStringA((assetManager_->GetLastError() + "\n").c_str());
+	}
+	prefabManager_ = std::make_unique<PrefabManager>();
+	prefabManager_->Initialize(
+		assetManager_.get(), graphics_.get(), inputManager_.get());
+
+	// XAudio2はDirectX 12とは独立したシステムだが、Engineが寿命をまとめて管理する
 	audioManager_ = std::make_unique<AudioManager>();
 	if (!audioManager_->Initialize()) {
 		OutputDebugStringA((audioManager_->GetLastError() + "\n").c_str());
 		audioManager_.reset();
 	}
 
-	// 初期化時間を最初のDeltaTimeへ含めないよう、全システムの準備完了後に計測を開始する。
+	// 初期化時間を最初のDeltaTimeへ含めないよう、全システムの準備完了後に計測を開始する
 	gameTimer_.Reset();
 }
 
 bool Engine::ProcessMessage()
 {
 	MSG msg{};
-	// メッセージがある限り処理する。メッセージがない場合はすぐ戻り、ゲーム更新・描画を続ける。
+	// メッセージがある限り処理する。メッセージがない場合はすぐ戻り、ゲーム更新・描画を続ける
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 	{
 		// ウィンドウの×ボタンなどが押され、終了メッセージが来たら false を返す
@@ -165,9 +182,9 @@ bool Engine::ProcessMessage()
 	if (inputManager_ != nullptr) {
 		inputManager_->Update();
 	}
-	// メッセージ処理を含め、前フレームから実際に経過した時間を確定する。
+	// メッセージ処理を含め、前フレームから実際に経過した時間を確定する
 	gameTimer_.Tick();
-	// 終了メッセージが来ていなければ true を返す（ゲーム続行）
+	// 終了メッセージが来ていなければ true を返すゲーム続行
 	return true;
 }
 
@@ -177,7 +194,7 @@ void Engine::ApplyPendingResize()
 		return;
 	}
 
-	// SwapChainと深度バッファを先に作り直し、その後で投影行列の画面比率を更新する。
+	// SwapChainと深度バッファを先に作り直し、その後で投影行列の画面比率を更新する
 	dxCommon_->Resize(pendingResizeWidth_, pendingResizeHeight_);
 	graphics_->Resize(pendingResizeWidth_, pendingResizeHeight_);
 	hasPendingResize_ = false;
@@ -185,7 +202,7 @@ void Engine::ApplyPendingResize()
 
 LONG WINAPI Engine::ExportDump(EXCEPTION_POINTERS* exception)
 {
-	// 予期しない例外時に.dmpを作成し、後からVisual Studioで原因を追跡できるようにする。
+	// 予期しない例外時に.dmpを作成し、後からVisual Studioで原因を追跡できるようにする
 	SYSTEMTIME time;
 	GetLocalTime(&time);
 	wchar_t filePath[MAX_PATH] = { 0 };

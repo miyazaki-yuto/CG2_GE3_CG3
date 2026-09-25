@@ -181,7 +181,8 @@ void DirectXCommon::CreateDepthStencilResource() {
     resourceDesc.Height = height_;
     resourceDesc.DepthOrArraySize = 1;
     resourceDesc.MipLevels = 1;
-    resourceDesc.Format = GetDepthBufferFormat();
+    // DSVではD24S8、SSAOのSRVではR24として同じDepthを参照する。
+    resourceDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
     resourceDesc.SampleDesc.Count = 1;
     resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
@@ -288,25 +289,39 @@ void DirectXCommon::BeginDraw() {
     commandList_->ResourceBarrier(1, &barrier);
 
     // RTV と DSV の指定: カラーバッファと深度バッファを出力先として設定する。
-    auto dsvHandle = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-    commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], FALSE, &dsvHandle);
+    BindSwapChainRenderTarget();
+    const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = GetDepthStencilView();
 
     // 画面のクリア
-    float clearColor[] = { 0.1f, 0.25f, 0.5f, 1.0f }; // 適当なクリアカラー
+    float clearColor[] = { 0.035f, 0.04f, 0.05f, 1.0f };
     commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex], clearColor, 0, nullptr);
     commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
     // ViewportとScissorは全描画クラス共通なので、フレーム開始時に1回だけ設定する。
+    SetViewportAndScissor(width_, height_);
+    isDrawing_ = true;
+}
+
+void DirectXCommon::BindSwapChainRenderTarget() {
+    const UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = GetDepthStencilView();
+    commandList_->OMSetRenderTargets(
+        1, &rtvHandles_[backBufferIndex], FALSE, &dsvHandle);
+}
+
+void DirectXCommon::SetViewportAndScissor(
+    uint32_t width,
+    uint32_t height) {
+    assert(width > 0 && height > 0);
     D3D12_VIEWPORT viewport{};
-    viewport.Width = static_cast<float>(width_);
-    viewport.Height = static_cast<float>(height_);
+    viewport.Width = static_cast<float>(width);
+    viewport.Height = static_cast<float>(height);
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
     const D3D12_RECT scissorRect{
-        0, 0, static_cast<LONG>(width_), static_cast<LONG>(height_) };
+        0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     commandList_->RSSetViewports(1, &viewport);
     commandList_->RSSetScissorRects(1, &scissorRect);
-    isDrawing_ = true;
 }
 
 void DirectXCommon::EndDraw() {

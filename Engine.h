@@ -8,7 +8,9 @@
 #include "Graphics.h"
 
 class AudioManager;
+class AssetManager;
 class InputManager;
+class PrefabManager;
 
 // ウィンドウ、メッセージループ、DirectX初期化の順序を管理するアプリケーションの土台。
 class Engine
@@ -20,6 +22,8 @@ public:
 	void Initialize(HINSTANCE hInstance, int nCmdShow);
 	bool ProcessMessage();
 	Graphics* GetGraphics() const { return graphics_.get(); }
+	AssetManager* GetAssetManager() const { return assetManager_.get(); }
+	PrefabManager* GetPrefabManager() const { return prefabManager_.get(); }
 	AudioManager* GetAudioManager() const { return audioManager_.get(); }
 	InputManager* GetInputManager() const { return inputManager_.get(); }
 	float GetDeltaTime() const { return gameTimer_.GetDeltaTime(); }
@@ -44,6 +48,8 @@ private:
 	std::ofstream logStream_;
 	std::unique_ptr<DirectXCommon> dxCommon_;
 	std::unique_ptr<Graphics> graphics_;
+	std::unique_ptr<AssetManager> assetManager_;
+	std::unique_ptr<PrefabManager> prefabManager_;
 	std::unique_ptr<AudioManager> audioManager_;
 	std::unique_ptr<InputManager> inputManager_;
 };

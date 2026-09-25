@@ -61,6 +61,29 @@ void DebugCamera::Reset() {
     UpdateMatrices();
 }
 
+void DebugCamera::SetState(
+    const Vector3& target,
+    float yaw,
+    float pitch,
+    float distance,
+    bool isOrthographic,
+    float fovY,
+    float nearClip,
+    float farClip) {
+    target_ = target;
+    yaw_ = std::remainder(yaw, 2.0f * kPi);
+    pitch_ = (std::clamp)(pitch, -kPitchLimit, kPitchLimit);
+    distance_ = (std::clamp)(
+        distance, kMinimumDistance, kMaximumDistance);
+    isOrthographic_ = isOrthographic;
+
+    // 不正なクリップ範囲で射影行列が壊れないように補正する。
+    fovY_ = (std::clamp)(fovY, 0.01f, kPi - 0.01f);
+    nearClip_ = (std::max)(nearClip, 0.001f);
+    farClip_ = (std::max)(farClip, nearClip_ + 0.001f);
+    UpdateMatrices();
+}
+
 void DebugCamera::Update(const InputManager& inputManager, bool allowMouseControl) {
     const bool isControlPressed = IsControlPressed(inputManager);
 

@@ -17,22 +17,24 @@ DynamicBufferAllocation AllocateMaterialData(
     const Vector4& color,
     const UVTransform& uvTransform) {
     DynamicBufferAllocation allocation = dxCommon->AllocateDynamicBuffer(
-        sizeof(Material), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-    auto* material = static_cast<Material*>(allocation.cpuAddress);
+        sizeof(MaterialConstants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    auto* material = static_cast<MaterialConstants*>(allocation.cpuAddress);
     *material = {};
     material->color = { color.x, color.y, color.z, color.w };
     material->enableLighting = 1;
     material->uvTransform = MakeUVTransformMatrix(uvTransform);
+    // プリミティブにはMTLがないため、白いKsとシーン共通のShininessを使う。
+    material->specularColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    material->specularShininess = 0.0f;
+    material->metallic = 0.0f;
+    material->roughness = 0.5f;
     return allocation;
 }
 
 DynamicBufferAllocation AllocateTransformationData(
     DirectXCommon* dxCommon,
-    const TransformData& transform,
+    const Matrix4x4& worldMatrix,
     const Matrix4x4& viewProjectionMatrix) {
-    const Matrix4x4 worldMatrix = MakeAffineMatrix(
-        transform.scale, transform.rotate, transform.translate);
-
     DynamicBufferAllocation allocation = dxCommon->AllocateDynamicBuffer(
         sizeof(TransformationMatrix),
         D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -52,13 +54,17 @@ void PrimitiveDrawer::Initialize(
     LightingManager* lightingManager,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
-    ID3D12PipelineState* pipelineState) {
+    ID3D12PipelineState* pipelineState,
+    ID3D12RootSignature* shadowRootSignature,
+    ID3D12PipelineState* shadowPipelineState) {
     assert(dxCommon != nullptr);
     assert(debugCamera != nullptr);
     assert(lightingManager != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
     assert(pipelineState != nullptr);
+    assert(shadowRootSignature != nullptr);
+    assert(shadowPipelineState != nullptr);
 
     dxCommon_ = dxCommon;
     debugCamera_ = debugCamera;
@@ -66,6 +72,8 @@ void PrimitiveDrawer::Initialize(
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
     pipelineState_ = pipelineState;
+    shadowRootSignature_ = shadowRootSignature;
+    shadowPipelineState_ = shadowPipelineState;
 
     // 変更しない形状データだけを初期化時にGPU専用バッファへ転送する。
     CreateTriangleResources();
@@ -157,7 +165,7 @@ void PrimitiveDrawer::BeginFrame() {
     sphereDrawCount_ = 0;
 }
 
-void PrimitiveDrawer::SetCommonDrawState() {
+void PrimitiveDrawer::SetCommonDrawState(int fallbackTextureHandle) {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureManager_->GetSrvHeap() };
     // SRVを使う前に、シェーダーから参照可能なディスクリプタヒープを設定する。
@@ -168,11 +176,31 @@ void PrimitiveDrawer::SetCommonDrawState() {
     // 全描画クラスで共有する平行光源を、ルートパラメータ3（b2）へ設定する。
     commandList->SetGraphicsRootConstantBufferView(
         3, lightingManager_->GetLightingGpuAddress());
+    commandList->SetGraphicsRootDescriptorTable(
+        4, textureManager_->GetDirectionalShadowSrvHandleGPU());
+    // PrimitiveはNormal Mapを持たないため、t2には有効なDummy SRVを設定する。
+    commandList->SetGraphicsRootDescriptorTable(
+        5, textureManager_->GetSrvHandleGPU(fallbackTextureHandle));
+    const int environmentTextureHandle =
+        lightingManager_->GetEnvironmentTextureHandle() >= 0
+        ? lightingManager_->GetEnvironmentTextureHandle()
+        : fallbackTextureHandle;
+    commandList->SetGraphicsRootDescriptorTable(
+        6, textureManager_->GetSrvHandleGPU(environmentTextureHandle));
+    commandList->SetGraphicsRootDescriptorTable(
+        7, textureManager_->GetPointShadowSrvHandleGPU());
+}
+
+void PrimitiveDrawer::SetShadowDrawState() {
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+    commandList->SetGraphicsRootSignature(shadowRootSignature_.Get());
+    commandList->SetPipelineState(shadowPipelineState_.Get());
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 void PrimitiveDrawer::DrawTriangle(
     const TextureVertexData* vertices,
-    const TransformData& transform,
+    const Matrix4x4& worldMatrix,
     const Vector4& color,
     int textureHandle,
     const UVTransform& uvTransform) {
@@ -204,10 +232,10 @@ void PrimitiveDrawer::DrawTriangle(
         AllocateMaterialData(dxCommon_, color, uvTransform);
     const DynamicBufferAllocation transformationAllocation =
         AllocateTransformationData(
-            dxCommon_, transform, debugCamera_->GetViewProjectionMatrix());
+            dxCommon_, worldMatrix, debugCamera_->GetViewProjectionMatrix());
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    SetCommonDrawState();
+    SetCommonDrawState(textureHandle);
     commandList->IASetVertexBuffers(0, 1, &triangleVertexBufferView);
     commandList->IASetIndexBuffer(&triangleIndexBufferView_);
     commandList->SetGraphicsRootConstantBufferView(
@@ -222,7 +250,7 @@ void PrimitiveDrawer::DrawTriangle(
 }
 
 void PrimitiveDrawer::DrawSphere(
-    const TransformData& transform,
+    const Matrix4x4& worldMatrix,
     const Vector4& color,
     int textureHandle,
     const UVTransform& uvTransform) {
@@ -238,10 +266,10 @@ void PrimitiveDrawer::DrawSphere(
         AllocateMaterialData(dxCommon_, color, uvTransform);
     const DynamicBufferAllocation transformationAllocation =
         AllocateTransformationData(
-            dxCommon_, transform, debugCamera_->GetViewProjectionMatrix());
+            dxCommon_, worldMatrix, debugCamera_->GetViewProjectionMatrix());
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    SetCommonDrawState();
+    SetCommonDrawState(textureHandle);
     // 球の頂点バッファ、b0（Material）、b1（WVP）、t0（Texture）を順にバインドする。
     commandList->IASetVertexBuffers(0, 1, &sphereVertexBufferView_);
     commandList->IASetIndexBuffer(&sphereIndexBufferView_);
@@ -251,5 +279,58 @@ void PrimitiveDrawer::DrawSphere(
         1, transformationAllocation.gpuAddress);
     commandList->SetGraphicsRootDescriptorTable(
         2, textureManager_->GetSrvHandleGPU(textureHandle));
+    commandList->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
+}
+
+void PrimitiveDrawer::DrawTriangleShadow(
+    const TextureVertexData* vertices,
+    const Matrix4x4& worldMatrix,
+    const Matrix4x4& lightViewProjection) {
+    assert(dxCommon_ != nullptr);
+    assert(vertices != nullptr);
+
+    DynamicBufferAllocation vertexAllocation = dxCommon_->AllocateDynamicBuffer(
+        sizeof(TextureVertexData) * kTriangleVertexCount, 16);
+    auto* dynamicVertices =
+        static_cast<TextureVertexData*>(vertexAllocation.cpuAddress);
+    for (uint32_t index = 0; index < kTriangleVertexCount; ++index) {
+        dynamicVertices[index] = vertices[index];
+    }
+    D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+    vertexBufferView.BufferLocation = vertexAllocation.gpuAddress;
+    vertexBufferView.SizeInBytes =
+        static_cast<UINT>(vertexAllocation.sizeInBytes);
+    vertexBufferView.StrideInBytes = sizeof(TextureVertexData);
+
+    const DynamicBufferAllocation transformAllocation =
+        dxCommon_->AllocateDynamicBuffer(sizeof(Matrix4x4));
+    *static_cast<Matrix4x4*>(transformAllocation.cpuAddress) =
+        Multiply(worldMatrix, lightViewProjection);
+
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+    SetShadowDrawState();
+    commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+    commandList->IASetIndexBuffer(&triangleIndexBufferView_);
+    commandList->SetGraphicsRootConstantBufferView(
+        0, transformAllocation.gpuAddress);
+    commandList->DrawIndexedInstanced(kTriangleIndexCount, 1, 0, 0, 0);
+}
+
+void PrimitiveDrawer::DrawSphereShadow(
+    const Matrix4x4& worldMatrix,
+    const Matrix4x4& lightViewProjection) {
+    assert(dxCommon_ != nullptr);
+
+    const DynamicBufferAllocation transformAllocation =
+        dxCommon_->AllocateDynamicBuffer(sizeof(Matrix4x4));
+    *static_cast<Matrix4x4*>(transformAllocation.cpuAddress) =
+        Multiply(worldMatrix, lightViewProjection);
+
+    ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+    SetShadowDrawState();
+    commandList->IASetVertexBuffers(0, 1, &sphereVertexBufferView_);
+    commandList->IASetIndexBuffer(&sphereIndexBufferView_);
+    commandList->SetGraphicsRootConstantBufferView(
+        0, transformAllocation.gpuAddress);
     commandList->DrawIndexedInstanced(sphereIndexCount_, 1, 0, 0, 0);
 }

@@ -8,7 +8,11 @@
 
 namespace {
 
-DirectX::ScratchImage LoadTextureFile(const std::string& filePath) {
+DirectX::ScratchImage LoadTextureFile(
+    const std::string& filePath,
+    bool useSrgb,
+    bool& succeeded) {
+    succeeded = false;
     // WICを使ってpngなどを読み込み、GPUで扱える画像データに変換する。
     DirectX::ScratchImage image{};
     const std::wstring filePathW = DX12Utility::ConvertString(filePath);
@@ -16,10 +20,14 @@ DirectX::ScratchImage LoadTextureFile(const std::string& filePath) {
     // WIC_FLAGS_FORCE_SRGBにより、色テクスチャをsRGBとして扱う。
     HRESULT hr = DirectX::LoadFromWICFile(
         filePathW.c_str(),
-        DirectX::WIC_FLAGS_FORCE_SRGB,
+        useSrgb
+            ? DirectX::WIC_FLAGS_FORCE_SRGB
+            : DirectX::WIC_FLAGS_IGNORE_SRGB,
         nullptr,
         image);
-    assert(SUCCEEDED(hr));
+    if (FAILED(hr)) {
+        return {};
+    }
 
     // 縮小表示でも粗くなりにくいように、ミップマップを自動生成する。
     DirectX::ScratchImage mipImages{};
@@ -27,11 +35,14 @@ DirectX::ScratchImage LoadTextureFile(const std::string& filePath) {
         image.GetImages(),
         image.GetImageCount(),
         image.GetMetadata(),
-        DirectX::TEX_FILTER_SRGB,
+        useSrgb ? DirectX::TEX_FILTER_SRGB : DirectX::TEX_FILTER_DEFAULT,
         0,
         mipImages);
-    assert(SUCCEEDED(hr));
+    if (FAILED(hr)) {
+        return {};
+    }
 
+    succeeded = true;
     return mipImages;
 }
 
@@ -45,33 +56,40 @@ void TextureManager::Initialize(ID3D12Device* device) {
     descriptorSize_ = device_->GetDescriptorHandleIncrementSize(
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    // ImGui用1枠 + ゲーム用テクスチャkMaxTextures枠を、1つのshaderVisibleヒープに確保する。
+    // ImGui font/Editor Viewport用2枠 + ゲーム用テクスチャを1つのshaderVisibleヒープに確保する。
     srvDescriptorHeap_ = DX12Utility::CreateDescriptorHeap(
         device_,
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        static_cast<UINT>(kMaxTextures) + kImGuiDescriptorCount,
+        static_cast<UINT>(kMaxTextures) + kEngineDescriptorCount,
         true);
 }
 
 int TextureManager::LoadTexture(
     const std::string& filePath,
-    ID3D12GraphicsCommandList* commandList) {
+    ID3D12GraphicsCommandList* commandList,
+    bool useSrgb) {
     assert(device_ != nullptr);
     assert(commandList != nullptr);
 
     // 一度読み込んだ画像は、同じ番号を返して再読み込みを避ける。
-    const auto cacheIt = textureCache_.find(filePath);
+    // 同じ画像でもColor TextureとNormal Mapでは色空間が異なるため、別SRVとして管理する。
+    const std::string cacheKey = filePath + (useSrgb ? "|srgb" : "|linear");
+    const auto cacheIt = textureCache_.find(cacheKey);
     if (cacheIt != textureCache_.end()) {
         return cacheIt->second;
     }
 
     if (textureCount_ >= kMaxTextures) {
-        assert(false && "Texture loading limit exceeded.");
         return -1;
     }
 
     // 1. 画像を読み込み、ミップマップを含むCPU側データを作る。
-    DirectX::ScratchImage mipImages = LoadTextureFile(filePath);
+    bool textureLoaded = false;
+    DirectX::ScratchImage mipImages =
+        LoadTextureFile(filePath, useSrgb, textureLoaded);
+    if (!textureLoaded) {
+        return -1;
+    }
     const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 
     // 2. GPU専用テクスチャを作成し、中間バッファからコピーするコマンドを記録する。
@@ -105,9 +123,19 @@ int TextureManager::LoadTexture(
         srvHandleCPU);
 
     const int textureIndex = static_cast<int>(textureCount_);
-    textureCache_[filePath] = textureIndex;
+    textureCache_[cacheKey] = textureIndex;
+    texturePaths_.push_back(filePath);
     ++textureCount_;
     return textureIndex;
+}
+
+const std::string& TextureManager::GetTexturePath(int textureIndex) const {
+    static const std::string kEmptyPath;
+    if (textureIndex < 0 ||
+        textureIndex >= static_cast<int>(texturePaths_.size())) {
+        return kEmptyPath;
+    }
+    return texturePaths_[static_cast<size_t>(textureIndex)];
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(int textureIndex) const {

@@ -1,7 +1,6 @@
 #include "DX12Utility.h"
 
 #include <cassert>
-#include <format>
 #include <ostream>
 #include <stdexcept>
 #include <vector>
@@ -228,75 +227,6 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(
     }
     assert(SUCCEEDED(hr));
     return descriptorHeap;
-}
-
-Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(
-    const std::wstring& filePath,
-    const wchar_t* profile,
-    IDxcUtils* dxcUtils,
-    IDxcCompiler3* dxcCompiler,
-    IDxcIncludeHandler* includeHandler,
-    std::ostream& logStream) {
-    assert(dxcUtils != nullptr);
-    assert(dxcCompiler != nullptr);
-    assert(includeHandler != nullptr);
-
-    // コンパイル対象とプロファイルをログに出して、HLSLエラーの調査をしやすくする。
-    Log(logStream, ConvertString(std::format(
-        L"Begin CompileShader, path:{}, profile:{}", filePath, profile)));
-
-    Microsoft::WRL::ComPtr<IDxcBlobEncoding> shaderSource;
-    HRESULT hr = dxcUtils->LoadFile(
-        filePath.c_str(), nullptr, shaderSource.GetAddressOf());
-    assert(SUCCEEDED(hr));
-
-    // 読み込んだHLSLのメモリ範囲をDXCへ渡す。
-    DxcBuffer shaderSourceBuffer{};
-    shaderSourceBuffer.Ptr = shaderSource->GetBufferPointer();
-    shaderSourceBuffer.Size = shaderSource->GetBufferSize();
-    shaderSourceBuffer.Encoding = DXC_CP_UTF8;
-
-    // -Zpr: 行優先行列。C++側のMatrix4x4を転置せずにHLSLへ渡せるようにする。
-    LPCWSTR arguments[] = {
-        filePath.c_str(),
-        L"-E", L"main",
-        L"-T", profile,
-        L"-Zi", L"-Qembed_debug",
-        L"-Od",
-        L"-Zpr",
-    };
-
-    Microsoft::WRL::ComPtr<IDxcResult> shaderResult;
-    hr = dxcCompiler->Compile(
-        &shaderSourceBuffer,
-        arguments,
-        _countof(arguments),
-        includeHandler,
-        IID_PPV_ARGS(shaderResult.GetAddressOf()));
-    assert(SUCCEEDED(hr));
-
-    // DXCは成功時でも警告を返すことがある。文字列があればログへ出す。
-    Microsoft::WRL::ComPtr<IDxcBlobUtf8> shaderError;
-    shaderResult->GetOutput(
-        DXC_OUT_ERRORS,
-        IID_PPV_ARGS(shaderError.GetAddressOf()),
-        nullptr);
-    if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
-        Log(logStream, shaderError->GetStringPointer());
-        assert(false);
-        return {};
-    }
-
-    Microsoft::WRL::ComPtr<IDxcBlob> shaderBlob;
-    hr = shaderResult->GetOutput(
-        DXC_OUT_OBJECT,
-        IID_PPV_ARGS(shaderBlob.GetAddressOf()),
-        nullptr);
-    assert(SUCCEEDED(hr));
-    Log(logStream, ConvertString(std::format(
-        L"Compile Succeeded, path:{}, profile:{}", filePath, profile)));
-
-    return shaderBlob;
 }
 
 } // namespace DX12Utility

@@ -38,7 +38,21 @@ public:
     float GetYaw() const { return yaw_; }
     float GetPitch() const { return pitch_; }
     float GetDistance() const { return distance_; }
+    float GetFovY() const { return fovY_; }
+    float GetNearClip() const { return nearClip_; }
+    float GetFarClip() const { return farClip_; }
     bool IsOrthographic() const { return isOrthographic_; }
+
+    // Sceneファイルからカメラ一式を復元し、行列もその場で更新する。
+    void SetState(
+        const Vector3& target,
+        float yaw,
+        float pitch,
+        float distance,
+        bool isOrthographic,
+        float fovY,
+        float nearClip,
+        float farClip);
 
 private:
     // yaw・pitch・distanceからワールド空間上のカメラ位置を求める。
