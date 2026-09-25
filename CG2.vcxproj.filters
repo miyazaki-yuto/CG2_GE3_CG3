@@ -126,6 +126,9 @@
     <ClCompile Include="DX12Utility.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="DebugSelfTests.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="PrimitiveDrawer.cpp">
       <Filter>ソース ファイル\Engine\Graphics</Filter>
     </ClCompile>
@@ -157,6 +160,9 @@
       <Filter>ソース ファイル\Engine</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="SampleScene.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
@@ -214,6 +220,9 @@
     </ClInclude>
     <ClInclude Include="DX12Utility.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugSelfTests.h">
+      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="Graphics.h">
       <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
@@ -289,6 +298,9 @@
     </ClInclude>
     <ClInclude Include="SpriteRendererComponent.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="SampleScene.h">
+      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
