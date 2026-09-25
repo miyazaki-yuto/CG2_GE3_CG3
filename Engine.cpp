@@ -1,6 +1,8 @@
 #include "Engine.h"
 #include "AssetManager.h"
 #include "AudioManager.h"
+#include "DirectXCommon.h"
+#include "Graphics.h"
 #include "InputManager.h"
 #include "PrefabManager.h"
 #include <filesystem>
@@ -23,6 +25,8 @@
 // ImGuiのメッセージハンドラーの宣言
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
+
+Engine::Engine() = default;
 
 LRESULT CALLBACK Engine::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -121,7 +125,7 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	RegisterClass(&wc);
 
-	RECT wrc = { 0, 0, kWindowWidth_, kWindowHeight_ };
+	RECT wrc = { 0, 0, kWindowWidth, kWindowHeight };
 	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, FALSE);
 
 	hWnd_ = CreateWindow(
@@ -138,11 +142,12 @@ void Engine::Initialize(HINSTANCE hInstance, int nCmdShow)
 
 	// DirectXCommonを先に作り、Graphicsが必要とするDevice/CommandListを用意する
 	dxCommon_ = std::make_unique<DirectXCommon>();
-	dxCommon_->Initialize(hWnd_, kWindowWidth_, kWindowHeight_);
+	dxCommon_->Initialize(hWnd_, kWindowWidth, kWindowHeight);
 
 	// GraphicsはDirectXCommonを借りて、PSO・テクスチャ・描画クラスを初期化する
 	graphics_ = std::make_unique<Graphics>();
-	graphics_->Initialize(dxCommon_.get(), hWnd_, kWindowWidth_, kWindowHeight_, logStream_);
+	graphics_->Initialize(
+		dxCommon_.get(), hWnd_, kWindowWidth, kWindowHeight, logStream_);
 
 	// モデル・テクスチャは以降、ファイルパスではなくAssetManagerのGUIDで参照する
 	assetManager_ = std::make_unique<AssetManager>();

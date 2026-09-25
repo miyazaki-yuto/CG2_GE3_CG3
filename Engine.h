@@ -3,12 +3,12 @@
 #include <cstdint>
 #include <memory>
 #include <fstream>
-#include "DirectXCommon.h"
 #include "GameTimer.h"
-#include "Graphics.h"
 
 class AudioManager;
 class AssetManager;
+class DirectXCommon;
+class Graphics;
 class InputManager;
 class PrefabManager;
 
@@ -16,7 +16,7 @@ class PrefabManager;
 class Engine
 {
 public:
-	Engine() = default;
+	Engine();
 	~Engine();
 
 	void Initialize(HINSTANCE hInstance, int nCmdShow);
@@ -37,8 +37,8 @@ private:
 
 private:
 	HWND hWnd_ = nullptr;
-	const int32_t kWindowWidth_ = 1280;
-	const int32_t kWindowHeight_ = 720;
+	static constexpr int32_t kWindowWidth = 1280;
+	static constexpr int32_t kWindowHeight = 720;
 	uint32_t pendingResizeWidth_ = 0;
 	uint32_t pendingResizeHeight_ = 0;
 	bool hasPendingResize_ = false;
