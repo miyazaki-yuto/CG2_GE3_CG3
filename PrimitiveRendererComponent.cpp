@@ -33,7 +33,8 @@ void PrimitiveRendererComponent::Render() {
             worldMatrix,
             color_,
             textureHandle_,
-            uvTransform_);
+            uvTransform_,
+            GetBlendMode());
         break;
 
     case PrimitiveType::Sphere:
@@ -41,7 +42,8 @@ void PrimitiveRendererComponent::Render() {
             worldMatrix,
             color_,
             textureHandle_,
-            uvTransform_);
+            uvTransform_,
+            GetBlendMode());
         break;
     }
 }

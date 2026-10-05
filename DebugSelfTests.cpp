@@ -5,6 +5,7 @@
 #include "AssetManager.h"
 #include "GameObject.h"
 #include "LightingManager.h"
+#include "Model.h"
 #include "PlayModeManager.h"
 #include "PrefabInstanceComponent.h"
 #include "PrefabManager.h"
@@ -20,6 +21,35 @@
 #include <thread>
 
 namespace DebugSelfTests {
+
+void RunSkeletalAnimation() {
+    char enabled[2]{};
+    if (GetEnvironmentVariableA(
+        "CG2_SKELETAL_SELF_TEST",
+        enabled,
+        static_cast<DWORD>(std::size(enabled))) == 0) {
+        return;
+    }
+
+    const std::filesystem::path modelPath =
+        "externals/assimp/test/models/glTF2/simple_skin/simple_skin.gltf";
+    assert(std::filesystem::exists(modelPath));
+    Model model;
+    std::vector<TextureVertexData> vertices;
+    std::vector<uint32_t> indices;
+    std::string texturePath;
+    assert(model.LoadModelFile(
+        modelPath.generic_string(), vertices, indices, texturePath));
+    assert(!vertices.empty() && !indices.empty());
+    assert(model.GetBoneCount() > 0);
+    assert(model.GetAnimationCount() > 0);
+    const ModelAnimationClip* clip = model.GetAnimation(0);
+    assert(clip != nullptr && clip->durationSeconds > 0.0f);
+    ModelPose pose;
+    assert(model.EvaluateAnimation(0, clip->durationSeconds * 0.5f, pose));
+    assert(pose.nodeModelTransforms.size() == model.GetNodeCount());
+    OutputDebugStringA("Skeletal animation self-test succeeded.\n");
+}
 
 void RunPrefab(
     Scene& scene,

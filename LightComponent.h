@@ -6,12 +6,13 @@
 class LightingManager;
 
 // GameObjectのTransformを使って配置できるライトComponent。
-// Directionalは回転、Pointは位置をLightingManagerへ反映する。
+// Directionalは回転、Pointは位置、Spotは位置と回転を反映する。
 class LightComponent final : public Component {
 public:
     enum class LightType {
         Directional,
-        Point
+        Point,
+        Spot
     };
 
     LightComponent(LightingManager* lightingManager, LightType lightType);
@@ -48,6 +49,11 @@ public:
     float GetDecay() const { return decay_; }
     void SetDecay(float decay) { decay_ = decay; }
 
+    float GetInnerAngle() const { return innerAngle_; }
+    float GetOuterAngle() const { return outerAngle_; }
+    void SetInnerAngle(float radians);
+    void SetOuterAngle(float radians);
+
     // ImGuiで値を変更した直後など、Updateを待たず反映したい場合に使用する。
     void ApplyLight();
 
@@ -68,4 +74,6 @@ private:
     float intensity_ = 1.0f;
     float radius_ = 10.0f;
     float decay_ = 2.0f;
+    float innerAngle_ = 0.34906585f;
+    float outerAngle_ = 0.52359878f;
 };

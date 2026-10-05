@@ -256,7 +256,7 @@ struct ParsedDefinition {
     std::wstring pixelProfile = L"ps_6_0";
     std::wstring vertexEntry = L"main";
     std::wstring pixelEntry = L"main";
-    std::string blend = "Alpha";
+    BlendMode blendMode = BlendMode::Normal;
     std::string cull = "Back";
     bool depthWrite = true;
     bool depthTest = true;
@@ -302,7 +302,15 @@ bool ParseDefinition(
     if (ReadStringField(json, "pixelProfile", value, false) && !value.empty()) {
         definition.pixelProfile.assign(value.begin(), value.end());
     }
-    ReadStringField(json, "blend", definition.blend, false);
+    value.clear();
+    if (!ReadStringField(json, "blend", value, false)) {
+        error = "Field 'blend' must be a string.";
+        return false;
+    }
+    if (!value.empty() && !TryParseBlendMode(value, definition.blendMode)) {
+        error = "Unsupported blend mode: " + value;
+        return false;
+    }
     ReadStringField(json, "cull", definition.cull, false);
     ReadBoolField(json, "depthWrite", definition.depthWrite);
     ReadBoolField(json, "depthTest", definition.depthTest);
@@ -621,17 +629,8 @@ bool ShaderManager::LoadShaderDefinition(
         definition.depthWrite
         ? D3D12_DEPTH_WRITE_MASK_ALL
         : D3D12_DEPTH_WRITE_MASK_ZERO;
-    auto& blend = pipelineDesc.BlendState.RenderTarget[0];
-    if (definition.blend == "Opaque") {
-        blend.BlendEnable = FALSE;
-    } else {
-        blend.BlendEnable = TRUE;
-        blend.SrcBlend = definition.blend == "Additive"
-            ? D3D12_BLEND_ONE : D3D12_BLEND_SRC_ALPHA;
-        blend.DestBlend = definition.blend == "Additive"
-            ? D3D12_BLEND_ONE : D3D12_BLEND_INV_SRC_ALPHA;
-        blend.BlendOp = D3D12_BLEND_OP_ADD;
-    }
+    pipelineDesc.BlendState =
+        DX12Utility::CreateBlendDesc(definition.blendMode);
 
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState;
     const HRESULT result = device_->CreateGraphicsPipelineState(

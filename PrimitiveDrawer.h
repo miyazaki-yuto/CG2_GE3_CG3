@@ -2,7 +2,9 @@
 
 #include <d3d12.h>
 #include <wrl.h>
+#include <array>
 #include <cstdint>
+#include "BlendMode.h"
 #include "CommonTypes.h"
 
 class DirectXCommon;
@@ -32,7 +34,8 @@ public:
         LightingManager* lightingManager,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
-        ID3D12PipelineState* pipelineState,
+        const std::array<
+            ID3D12PipelineState*, kBlendModeCount>& pipelineStates,
         ID3D12RootSignature* shadowRootSignature,
         ID3D12PipelineState* shadowPipelineState);
 
@@ -45,12 +48,14 @@ public:
         const Matrix4x4& worldMatrix,
         const Vector4& color,
         int textureHandle,
-        const UVTransform& uvTransform);
+        const UVTransform& uvTransform,
+        BlendMode blendMode);
     void DrawSphere(
         const Matrix4x4& worldMatrix,
         const Vector4& color,
         int textureHandle,
-        const UVTransform& uvTransform);
+        const UVTransform& uvTransform,
+        BlendMode blendMode);
     void DrawTriangleShadow(
         const TextureVertexData* vertices,
         const Matrix4x4& worldMatrix,
@@ -67,7 +72,9 @@ private:
 
     void CreateTriangleResources();
     void CreateSphereResources();
-    void SetCommonDrawState(int fallbackTextureHandle);
+    void SetCommonDrawState(
+        int fallbackTextureHandle,
+        BlendMode blendMode);
     void SetShadowDrawState();
 
     // 所有しない参照。生成・破棄の順序は Graphics が管理する。
@@ -77,7 +84,8 @@ private:
     TextureManager* textureManager_ = nullptr;
     // 共通の設定を共有するためComPtrで参照カウントを保持する。
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
+    std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kBlendModeCount>
+        pipelineStates_;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> shadowRootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> shadowPipelineState_;
 
@@ -96,4 +104,5 @@ private:
     D3D12_INDEX_BUFFER_VIEW sphereIndexBufferView_{};
     uint32_t sphereIndexCount_ = 0;
     uint32_t sphereDrawCount_ = 0;
+    D3D12_GPU_VIRTUAL_ADDRESS disabledSkinningGpuAddress_ = 0;
 };

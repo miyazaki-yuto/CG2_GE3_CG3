@@ -4,6 +4,9 @@
 #include "LightingManager.h"
 #include "Matrix4x4.h"
 
+#include <algorithm>
+#include <cmath>
+
 LightComponent::LightComponent(
     LightingManager* lightingManager,
     LightType lightType)
@@ -45,6 +48,16 @@ void LightComponent::SetLightType(LightType lightType) {
     RegisterLight();
 }
 
+void LightComponent::SetInnerAngle(float radians) {
+    innerAngle_ = (std::clamp)(radians, 0.001f, outerAngle_);
+}
+
+void LightComponent::SetOuterAngle(float radians) {
+    constexpr float kMaximumSpotAngle = 1.55334306f;
+    outerAngle_ = (std::clamp)(radians, 0.001f, kMaximumSpotAngle);
+    innerAngle_ = (std::min)(innerAngle_, outerAngle_);
+}
+
 void LightComponent::ApplyLight() {
 	// Componentが無効な間はGPU用ライト配列へ再登録しない。
 	// Inspectorは無効なComponentも表示するため、ここでも状態を確認する。
@@ -65,6 +78,21 @@ void LightComponent::ApplyLight() {
         light.intensity = intensity_;
         light.enabled = lightEnabled_ ? 1 : 0;
         lightingManager_->UpdateDirectionalLight(lightHandle_, light);
+        return;
+    }
+
+    if (lightType_ == LightType::Spot) {
+        SpotLight light{};
+        light.color = color_;
+        light.position = GetOwner()->GetTransform().GetWorldPosition();
+        light.intensity = intensity_;
+        light.direction = GetDirection();
+        light.radius = radius_;
+        light.decay = decay_;
+        light.cosOuterAngle = std::cos(outerAngle_);
+        light.cosInnerAngle = std::cos(innerAngle_);
+        light.enabled = lightEnabled_ ? 1 : 0;
+        lightingManager_->UpdateSpotLight(lightHandle_, light);
         return;
     }
 
@@ -101,6 +129,8 @@ void LightComponent::InitializeDefaultValues() {
     intensity_ = 1.0f;
     radius_ = 10.0f;
     decay_ = 2.0f;
+    innerAngle_ = 0.34906585f;
+    outerAngle_ = 0.52359878f;
 
     if (lightType_ == LightType::Directional) {
         lightEnabled_ = false;
@@ -110,6 +140,10 @@ void LightComponent::InitializeDefaultValues() {
     // BlenderのPoint Lightに近い、少し暖色の初期値。
     color_ = { 1.0f, 0.9f, 0.75f, 1.0f };
     intensity_ = 2.0f;
+    if (lightType_ == LightType::Spot) {
+        intensity_ = 5.0f;
+        radius_ = 15.0f;
+    }
     lightEnabled_ = true;
 }
 
@@ -127,6 +161,21 @@ void LightComponent::RegisterLight() {
         light.intensity = intensity_;
         light.enabled = lightEnabled_ ? 1 : 0;
         lightHandle_ = lightingManager_->RegisterDirectionalLight(light);
+        return;
+    }
+
+    if (lightType_ == LightType::Spot) {
+        SpotLight light{};
+        light.color = color_;
+        light.position = GetOwner()->GetTransform().GetWorldPosition();
+        light.intensity = intensity_;
+        light.direction = GetDirection();
+        light.radius = radius_;
+        light.decay = decay_;
+        light.cosOuterAngle = std::cos(outerAngle_);
+        light.cosInnerAngle = std::cos(innerAngle_);
+        light.enabled = lightEnabled_ ? 1 : 0;
+        lightHandle_ = lightingManager_->RegisterSpotLight(light);
         return;
     }
 
@@ -148,6 +197,8 @@ void LightComponent::UnregisterLight() {
 
     if (lightType_ == LightType::Directional) {
         lightingManager_->UnregisterDirectionalLight(lightHandle_);
+    } else if (lightType_ == LightType::Spot) {
+        lightingManager_->UnregisterSpotLight(lightHandle_);
     } else {
         lightingManager_->UnregisterPointLight(lightHandle_);
     }

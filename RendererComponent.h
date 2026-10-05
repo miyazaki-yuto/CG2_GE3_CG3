@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BlendMode.h"
 #include "Component.h"
 
 struct Matrix4x4;
@@ -10,6 +11,7 @@ class RendererComponent : public Component {
 public:
     static constexpr int kSkyRenderOrder = -1000;
     static constexpr int kOpaqueRenderOrder = 0;
+    static constexpr int kTransparentRenderOrder = 100;
     static constexpr int kOverlayRenderOrder = 1000;
 
     RendererComponent() = default;
@@ -17,6 +19,11 @@ public:
 
     int GetRenderOrder() const { return renderOrder_; }
     void SetRenderOrder(int renderOrder) { renderOrder_ = renderOrder; }
+    BlendMode GetBlendMode() const { return blendMode_; }
+    void SetBlendMode(BlendMode blendMode) {
+        blendMode_ = blendMode == BlendMode::Count
+            ? BlendMode::Normal : blendMode;
+    }
 
     virtual void Render() = 0;
     virtual void RenderShadow(const Matrix4x4& lightViewProjection) {
@@ -25,4 +32,5 @@ public:
 
 private:
     int renderOrder_ = kOpaqueRenderOrder;
+    BlendMode blendMode_ = BlendMode::Normal;
 };

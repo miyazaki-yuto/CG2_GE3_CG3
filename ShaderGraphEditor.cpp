@@ -302,7 +302,7 @@ void ShaderGraphEditor::ResetGraph() {
     output.y = 170.0f;
     output.inputA = multiply.id;
     nodes_.push_back(output);
-    status_ = "Default graph created.";
+    status_ = "標準グラフを作成しました。";
 }
 
 void ShaderGraphEditor::AddNode(NodeType type) {
@@ -321,7 +321,7 @@ void ShaderGraphEditor::DeleteNode(int nodeId) {
         return;
     }
     if (node->type == NodeType::Output) {
-        status_ = "The Output node cannot be deleted.";
+        status_ = "出力ノードは削除できません。";
         return;
     }
 
@@ -345,7 +345,7 @@ void ShaderGraphEditor::DeleteNode(int nodeId) {
     if (draggingSourceNodeId_ == nodeId) {
         draggingSourceNodeId_ = 0;
     }
-    status_ = "Node deleted. Connections using it were removed.";
+    status_ = "ノードと、そのノードを使う接続を削除しました。";
 }
 
 const char* ShaderGraphEditor::GetNodeTypeName(NodeType type) const {
@@ -383,39 +383,39 @@ bool ShaderGraphEditor::TryParseNodeType(
 
 void ShaderGraphEditor::Draw() {
 #ifdef USE_IMGUI
-    if (!ImGui::Begin("Shader Graph")) {
+    if (!ImGui::Begin("シェーダーグラフ###Shader Graph")) {
         ImGui::End();
         return;
     }
 
-    ImGui::InputText("Graph Name", graphName_.data(), graphName_.size());
-    if (ImGui::Button("New")) {
+    ImGui::InputText("グラフ名###GraphName", graphName_.data(), graphName_.size());
+    if (ImGui::Button("新規###NewGraph")) {
         ResetGraph();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Load...")) {
+    if (ImGui::Button("読み込み...###LoadGraph")) {
         const std::filesystem::path path = OpenShaderGraphDialog();
         if (!path.empty()) {
             LoadGraph(path);
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button("Save & Compile")) {
+    if (ImGui::Button("保存してコンパイル###SaveAndCompile")) {
         SaveAndCompile();
     }
-    if (ImGui::Button("Add Color")) {
+    if (ImGui::Button("カラーを追加###AddColor")) {
         AddNode(NodeType::Color);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Add Float")) {
+    if (ImGui::Button("Floatを追加###AddFloat")) {
         AddNode(NodeType::Float);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Add Multiply")) {
+    if (ImGui::Button("乗算を追加###AddMultiply")) {
         AddNode(NodeType::Multiply);
     }
     ImGui::SameLine();
-    if (ImGui::Button("Add Add")) {
+    if (ImGui::Button("加算を追加###AddAdd")) {
         AddNode(NodeType::Add);
     }
     ImGui::SameLine();
@@ -423,13 +423,13 @@ void ShaderGraphEditor::Draw() {
     const bool canDelete =
         selectedNode != nullptr && selectedNode->type != NodeType::Output;
     ImGui::BeginDisabled(!canDelete);
-    if (ImGui::Button("Delete Selected")) {
+    if (ImGui::Button("選択ノードを削除###DeleteSelected")) {
         pendingDeleteNodeId_ = selectedNodeId_;
     }
     ImGui::EndDisabled();
     ImGui::TextDisabled(
-        "Drag an output circle to an input circle. "
-        "Right-click an input to disconnect.");
+        "出力の丸から入力の丸へドラッグして接続します。"
+        "入力を右クリックすると接続を解除します。");
     ImGui::TextWrapped("%s", status_.c_str());
 
     ImGui::BeginChild(
@@ -513,7 +513,7 @@ void ShaderGraphEditor::Draw() {
     }
     if (draggingSourceNodeId_ != 0 && ImGui::IsMouseReleased(0)) {
         draggingSourceNodeId_ = 0;
-        status_ = "Connection cancelled.";
+        status_ = "接続をキャンセルしました。";
     }
     if (pendingDeleteNodeId_ != 0) {
         const int nodeId = pendingDeleteNodeId_;
@@ -549,12 +549,12 @@ void ShaderGraphEditor::DrawNode(
     if (ImGui::BeginPopupContextItem("NodeContext")) {
         selectedNodeId_ = node.id;
         ImGui::BeginDisabled(node.type == NodeType::Output);
-        if (ImGui::MenuItem("Delete Node")) {
+        if (ImGui::MenuItem("ノードを削除###DeleteNode")) {
             pendingDeleteNodeId_ = node.id;
         }
         ImGui::EndDisabled();
         if (node.type == NodeType::Output) {
-            ImGui::TextDisabled("Output is required.");
+            ImGui::TextDisabled("出力ノードは必須です。");
         }
         ImGui::EndPopup();
     }
@@ -593,22 +593,22 @@ void ShaderGraphEditor::DrawNode(
             node.name.data(),
             (std::min)(node.name.size(), name.size() - 1),
             name.data());
-        if (ImGui::InputText("Name", name.data(), name.size())) {
+        if (ImGui::InputText("名前###NodeName", name.data(), name.size())) {
             node.name = name.data();
         }
     }
     if (node.type == NodeType::Color) {
-        ImGui::ColorEdit4("Value", node.value.data());
+        ImGui::ColorEdit4("値###ColorValue", node.value.data());
     } else if (node.type == NodeType::Float) {
-        ImGui::DragFloat("Value", &node.value[0], 0.01f);
+        ImGui::DragFloat("値###FloatValue", &node.value[0], 0.01f);
     } else if (node.type == NodeType::Multiply ||
                node.type == NodeType::Add) {
         DrawInputSelector("A", node.id, node.inputA);
         DrawInputSelector("B", node.id, node.inputB);
     } else if (node.type == NodeType::Output) {
-        DrawInputSelector("Color", node.id, node.inputA);
+        DrawInputSelector("カラー###Color", node.id, node.inputA);
     } else {
-        ImGui::TextDisabled("Uses Main Texture (t0)");
+        ImGui::TextDisabled("メインテクスチャ（t0）を使用します");
     }
     ImGui::EndGroup();
     ImGui::PopID();
@@ -639,7 +639,7 @@ void ShaderGraphEditor::DrawNodeSockets(
         if (ImGui::IsItemActivated()) {
             draggingSourceNodeId_ = node.id;
             selectedNodeId_ = node.id;
-            status_ = "Drag to an input socket.";
+            status_ = "入力ソケットへドラッグしてください。";
         }
         drawList->AddCircleFilled(
             center,
@@ -686,7 +686,7 @@ void ShaderGraphEditor::DrawNodeSockets(
         }
         if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             sourceId = 0;
-            status_ = "Input disconnected.";
+            status_ = "入力の接続を解除しました。";
         }
         if (hovered &&
             draggingSourceNodeId_ != 0 &&
@@ -697,10 +697,10 @@ void ShaderGraphEditor::DrawNodeSockets(
                     draggingSourceNodeId_,
                     node.id,
                     visited)) {
-                status_ = "Connection rejected because it creates a cycle.";
+                status_ = "循環参照になるため接続できません。";
             } else {
                 sourceId = draggingSourceNodeId_;
-                status_ = "Nodes connected.";
+                status_ = "ノードを接続しました。";
             }
             draggingSourceNodeId_ = 0;
         }
@@ -735,7 +735,7 @@ void ShaderGraphEditor::DrawInputSelector(
 #ifdef USE_IMGUI
     const Node* selected = FindNode(sourceId);
     const char* preview = selected != nullptr
-        ? selected->name.c_str() : "(none)";
+        ? selected->name.c_str() : "（なし）";
     ImGui::SetNextItemWidth(150.0f);
     if (ImGui::BeginCombo(label, preview)) {
         for (const Node& source : nodes_) {
@@ -751,7 +751,7 @@ void ShaderGraphEditor::DrawInputSelector(
                     std::format("{}##{}", source.name, source.id).c_str(),
                     source.id == sourceId)) {
                 sourceId = source.id;
-                status_ = "Nodes connected.";
+                status_ = "ノードを接続しました。";
             }
             ImGui::EndDisabled();
         }
@@ -797,21 +797,21 @@ bool ShaderGraphEditor::LoadGraph(
     const std::filesystem::path& path) {
     std::string json;
     if (!ReadTextFile(path, json)) {
-        status_ = "Could not open Shader Graph file.";
+        status_ = "シェーダーグラフファイルを開けませんでした。";
         return false;
     }
 
     std::string graphName;
     if (!ReadStringField(json, "name", graphName) ||
         graphName.empty()) {
-        status_ = "Shader Graph JSON requires a name.";
+        status_ = "シェーダーグラフJSONには名前が必要です。";
         return false;
     }
 
     const std::vector<std::string> nodeObjects =
         ExtractObjectArray(json, "nodes");
     if (nodeObjects.empty() || nodeObjects.size() > 512) {
-        status_ = "Shader Graph must contain between 1 and 512 nodes.";
+        status_ = "シェーダーグラフのノード数は1～512個である必要があります。";
         return false;
     }
 
@@ -831,17 +831,17 @@ bool ShaderGraphEditor::LoadGraph(
             !ReadIntField(object, "inputA", node.inputA) ||
             !ReadIntField(object, "inputB", node.inputB) ||
             !TryParseNodeType(typeName, node.type)) {
-            status_ = "Shader Graph contains an invalid node.";
+            status_ = "シェーダーグラフに不正なノードがあります。";
             return false;
         }
         if (node.id <= 0 ||
             node.id >= 1000000 ||
             !nodeIds.insert(node.id).second) {
-            status_ = "Shader Graph contains a duplicate or invalid node ID.";
+            status_ = "重複または不正なノードIDがあります。";
             return false;
         }
         if (node.inputA < 0 || node.inputB < 0) {
-            status_ = "Shader Graph contains a negative connection ID.";
+            status_ = "接続IDに負の値があります。";
             return false;
         }
         node.x = (std::max)(0.0f, node.x);
@@ -861,7 +861,7 @@ bool ShaderGraphEditor::LoadGraph(
     }
 
     if (outputCount != 1) {
-        status_ = "Shader Graph requires exactly one Output node.";
+        status_ = "出力ノードは1つだけ必要です。";
         return false;
     }
     for (const Node& node : loadedNodes) {
@@ -878,7 +878,7 @@ bool ShaderGraphEditor::LoadGraph(
             if (source == loadedNodes.end() ||
                 source->type == NodeType::Output) {
                 status_ =
-                    "Shader Graph contains a missing or invalid connection.";
+                    "不足または不正な接続があります。";
                 return false;
             }
         }
@@ -894,8 +894,8 @@ bool ShaderGraphEditor::LoadGraph(
     BuildExpression(outputNode->id, recursionStack, valid);
     if (!valid) {
         nodes_ = std::move(previousNodes);
-        status_ = "Graph was not loaded because it contains a cycle "
-            "or missing required input.";
+        status_ = "循環参照または必須入力の不足があるため、"
+            "グラフを読み込めませんでした。";
         return false;
     }
 
@@ -908,7 +908,7 @@ bool ShaderGraphEditor::LoadGraph(
         graphName.data(),
         (std::min)(graphName.size(), graphName_.size() - 1),
         graphName_.data());
-    status_ = "Loaded Shader Graph: " + path.filename().string();
+    status_ = "シェーダーグラフを読み込みました: " + path.filename().string();
     return true;
 }
 
@@ -955,14 +955,14 @@ std::string ShaderGraphEditor::BuildExpression(
 bool ShaderGraphEditor::SaveAndCompile() {
     const std::string graphName = SanitizeName(graphName_.data());
     if (graphName.empty() || graphics_ == nullptr) {
-        status_ = "Graph name is empty or Graphics is unavailable.";
+        status_ = "グラフ名が空、またはGraphicsを利用できません。";
         return false;
     }
     const auto outputNode = std::ranges::find_if(
         nodes_,
         [](const Node& node) { return node.type == NodeType::Output; });
     if (outputNode == nodes_.end()) {
-        status_ = "Output node is required.";
+        status_ = "出力ノードが必要です。";
         return false;
     }
     bool valid = true;
@@ -970,7 +970,7 @@ bool ShaderGraphEditor::SaveAndCompile() {
     const std::string expression =
         BuildExpression(outputNode->id, recursionStack, valid);
     if (!valid) {
-        status_ = "Graph contains a missing input or cycle.";
+        status_ = "入力不足または循環参照があります。";
         return false;
     }
 
@@ -979,7 +979,7 @@ bool ShaderGraphEditor::SaveAndCompile() {
     std::error_code directoryError;
     std::filesystem::create_directories(directory, directoryError);
     if (directoryError) {
-        status_ = "Could not create Generated shader directory.";
+        status_ = "生成シェーダーディレクトリを作成できませんでした。";
         return false;
     }
 
@@ -1024,7 +1024,7 @@ bool ShaderGraphEditor::SaveAndCompile() {
         offset += 16;
     }
     if (offset > ShaderManager::kMaterialParameterBufferSize) {
-        status_ = "Material parameters exceed 256 bytes.";
+        status_ = "マテリアルパラメーターが256バイトを超えています。";
         return false;
     }
 
@@ -1089,7 +1089,7 @@ bool ShaderGraphEditor::SaveAndCompile() {
     shaderJson.close();
     graphJson.close();
     if (!hlsl || !shaderJson || !graphJson) {
-        status_ = "Failed to write Shader Graph files.";
+        status_ = "シェーダーグラフファイルの書き込みに失敗しました。";
         return false;
     }
     if (!graphics_->GetShaderManager()->LoadShaderDefinition(
@@ -1099,6 +1099,6 @@ bool ShaderGraphEditor::SaveAndCompile() {
         status_ = graphics_->GetShaderManager()->GetLastError();
         return false;
     }
-    status_ = "Saved and compiled: " + graphName;
+    status_ = "保存・コンパイルしました: " + graphName;
     return true;
 }

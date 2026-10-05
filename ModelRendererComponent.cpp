@@ -5,6 +5,7 @@
 #include "Model.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 ModelRendererComponent::ModelRendererComponent(
@@ -18,6 +19,7 @@ ModelRendererComponent::ModelRendererComponent(
       fallbackTextureGuid_(std::move(fallbackTextureGuid)) {
     SetRenderOrder(kOpaqueRenderOrder);
     ResetMaterialOverrides();
+    ResetAnimationState();
 }
 
 ModelRendererComponent::~ModelRendererComponent() = default;
@@ -28,6 +30,106 @@ void ModelRendererComponent::SetModel(
     model_ = std::move(model);
     modelGuid_ = std::move(modelGuid);
     ResetMaterialOverrides();
+    ResetAnimationState();
+}
+
+void ModelRendererComponent::ResetAnimationState() {
+    animationIndex_ = 0;
+    animationTimeSeconds_ = 0.0f;
+    animationPlaying_ = model_ != nullptr && model_->GetAnimationCount() > 0;
+    hasAnimationPose_ = false;
+    animationPose_.nodeModelTransforms.clear();
+    EvaluateCurrentAnimation();
+}
+
+void ModelRendererComponent::EvaluateCurrentAnimation() {
+    hasAnimationPose_ = model_ != nullptr &&
+        model_->EvaluateAnimation(
+            animationIndex_, animationTimeSeconds_, animationPose_);
+}
+
+bool ModelRendererComponent::PlayAnimation(
+    uint32_t animationIndex,
+    bool restart) {
+    if (model_ == nullptr || animationIndex >= model_->GetAnimationCount()) {
+        return false;
+    }
+    if (restart || animationIndex_ != animationIndex) {
+        animationTimeSeconds_ = 0.0f;
+    }
+    animationIndex_ = animationIndex;
+    animationPlaying_ = true;
+    EvaluateCurrentAnimation();
+    return true;
+}
+
+bool ModelRendererComponent::PlayAnimation(
+    const std::string& animationName,
+    bool restart) {
+    if (model_ == nullptr) {
+        return false;
+    }
+    const int animationIndex = model_->FindAnimationIndex(animationName);
+    return animationIndex >= 0 && PlayAnimation(
+        static_cast<uint32_t>(animationIndex), restart);
+}
+
+void ModelRendererComponent::ResumeAnimation() {
+    if (model_ != nullptr && animationIndex_ < model_->GetAnimationCount()) {
+        animationPlaying_ = true;
+    }
+}
+
+void ModelRendererComponent::StopAnimation() {
+    animationPlaying_ = false;
+    animationTimeSeconds_ = 0.0f;
+    EvaluateCurrentAnimation();
+}
+
+void ModelRendererComponent::SetAnimationTime(float timeSeconds) {
+    animationTimeSeconds_ = (std::clamp)(
+        timeSeconds, 0.0f, GetCurrentAnimationDuration());
+    EvaluateCurrentAnimation();
+}
+
+const std::string& ModelRendererComponent::GetCurrentAnimationName() const {
+    static const std::string emptyName;
+    if (model_ == nullptr) {
+        return emptyName;
+    }
+    const ModelAnimationClip* animation = model_->GetAnimation(animationIndex_);
+    return animation != nullptr ? animation->name : emptyName;
+}
+
+float ModelRendererComponent::GetCurrentAnimationDuration() const {
+    if (model_ == nullptr) {
+        return 0.0f;
+    }
+    const ModelAnimationClip* animation = model_->GetAnimation(animationIndex_);
+    return animation != nullptr ? animation->durationSeconds : 0.0f;
+}
+
+void ModelRendererComponent::SetAnimationPlaybackSpeed(float speed) {
+    animationPlaybackSpeed_ = (std::clamp)(speed, 0.0f, 100.0f);
+}
+
+void ModelRendererComponent::Update(float deltaTime) {
+    if (!animationPlaying_ || model_ == nullptr ||
+        animationIndex_ >= model_->GetAnimationCount()) {
+        return;
+    }
+    const float duration = GetCurrentAnimationDuration();
+    animationTimeSeconds_ +=
+        (std::max)(deltaTime, 0.0f) * animationPlaybackSpeed_;
+    if (duration > 0.000001f && animationTimeSeconds_ > duration) {
+        if (animationLooping_) {
+            animationTimeSeconds_ = std::fmod(animationTimeSeconds_, duration);
+        } else {
+            animationTimeSeconds_ = duration;
+            animationPlaying_ = false;
+        }
+    }
+    EvaluateCurrentAnimation();
 }
 
 void ModelRendererComponent::ResetMaterialOverrides() {
@@ -37,7 +139,7 @@ void ModelRendererComponent::ResetMaterialOverrides() {
 
     // Modelを交換するとMaterial数も変わる可能性があるため、
     // 全ての個別設定を新しいMaterial Slot数へ揃え直す。
-    // -1と無効状態は「OBJ／MTL本来の設定をそのまま使う」という意味になる。
+    // -1と無効状態は「読み込んだModel本来の設定を使う」という意味になる。
     materialTextureHandles_.assign(materialCount, -1);
     materialTextureGuids_.assign(materialCount, {});
     materialNormalTextureHandles_.assign(materialCount, -1);
@@ -263,7 +365,19 @@ void ModelRendererComponent::Render() {
         materialPbrOverrideEnabled_,
         materialUVTransforms_,
         materialUVTransformEnabled_,
-        shaderMaterials_);
+        shaderMaterials_,
+        GetBlendMode(),
+        hasAnimationPose_ ? &animationPose_ : nullptr);
+}
+
+void ModelRendererComponent::RenderOutline() {
+    GameObject* owner = GetOwner();
+    if (owner == nullptr || model_ == nullptr || model_->IsSkySphere()) {
+        return;
+    }
+    model_->DrawOutline(
+        owner->GetTransform().GetWorldMatrix(),
+        hasAnimationPose_ ? &animationPose_ : nullptr);
 }
 
 void ModelRendererComponent::RenderShadow(
@@ -273,5 +387,7 @@ void ModelRendererComponent::RenderShadow(
         return;
     }
     model_->DrawShadow(
-        owner->GetTransform().GetWorldMatrix(), lightViewProjection);
+        owner->GetTransform().GetWorldMatrix(),
+        lightViewProjection,
+        hasAnimationPose_ ? &animationPose_ : nullptr);
 }

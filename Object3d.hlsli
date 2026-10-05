@@ -1,4 +1,6 @@
 
+#include "Skinning.hlsli"
+
 // C++側のTextureVertexDataと同じ並びで受け取る、頂点シェーダーへの入力。
 struct VertexShaderInput
 {
@@ -6,6 +8,8 @@ struct VertexShaderInput
     float2 texcoord : TEXCOORD0;
     float3 normal : NORMAL0; // 頂点バッファから法線を受け取る
     float4 tangent : TANGENT0;
+    uint4 boneIndices : BLENDINDICES0;
+    float4 boneWeights : BLENDWEIGHT0;
 };
 
 // 頂点シェーダーからピクセルシェーダーへ補間して渡すデータ。
@@ -39,6 +43,19 @@ struct PointLight
     float padding;
 };
 
+struct SpotLight
+{
+    float4 color;
+    float3 position;
+    float intensity;
+    float3 direction;
+    float radius;
+    float decay;
+    float cosOuterAngle;
+    float cosInnerAngle;
+    int enabled;
+};
+
 struct BounceLight
 {
     float4 color;
@@ -53,6 +70,7 @@ struct BounceLight
 // CommonTypes.hの上限値と必ず一致させる。
 static const int kMaxDirectionalLights = 4;
 static const int kMaxPointLights = 16;
+static const int kMaxSpotLights = 8;
 static const int kMaxBounceLights = 3;
 static const int kLightingModeLambert = 0;
 static const int kLightingModeHalfLambert = 1;
@@ -71,6 +89,8 @@ cbuffer MaterialBuffer : register(b0)
     int gNormalMapEnabled;
     float gMaterialMetallic;
     float gMaterialRoughness;
+    int gMetallicRoughnessMapEnabled;
+    float3 gPbrPadding;
 }
 
 cbuffer LightBuffer : register(b2)
@@ -78,6 +98,7 @@ cbuffer LightBuffer : register(b2)
     // b2: LightingManagerが設定し、全ての描画クラスで共有するライト。
     DirectionalLight gDirectionalLights[kMaxDirectionalLights];
     PointLight gPointLights[kMaxPointLights];
+    SpotLight gSpotLights[kMaxSpotLights];
     // Blinn-Phongスペキュラに必要なシーン共通パラメーター。
     float3 gCameraPosition;
     float gSpecularStrength;

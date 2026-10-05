@@ -4,12 +4,14 @@
 #include <d3d12.h>
 #include <wrl.h>
 
+#include <array>
 #include <cstdint>
 #include <fstream>
 #include <memory>
 #include <string>
 
 #include "Matrix4x4.h"
+#include "BlendMode.h"
 #include "CommonTypes.h"
 
 class DirectXCommon;
@@ -17,6 +19,7 @@ class DebugCamera;
 class LightingManager;
 class Material;
 class Model;
+class ParticleDrawer;
 class PrimitiveDrawer;
 class ShaderManager;
 class Sprite;
@@ -73,13 +76,14 @@ public:
     // 読み込んだテクスチャを指定するための番号を返す。
     int LoadTexture(const std::string& filePath, bool useSrgb = true);
 
-    // OBJを読み込み、そのモデルのGPUリソースを所有するModelを返す。
+    // OBJ／glTF／GLBを読み込み、そのGPUリソースを所有するModelを返す。
     // 読み込みに失敗した場合はnullptrを返す。
-    std::unique_ptr<Model> CreateModel(const std::string& objFilePath);
+    std::unique_ptr<Model> CreateModel(const std::string& modelFilePath);
 
-    // 天球用の描画設定でOBJを生成する。
+    // 天球用の描画設定でModelを生成する。
     // 通常モデルと違い、球の内側を描き、深度バッファには書き込まない。
-    std::unique_ptr<Model> CreateSkySphereModel(const std::string& objFilePath);
+    std::unique_ptr<Model> CreateSkySphereModel(
+        const std::string& modelFilePath);
     std::shared_ptr<Material> CreateMaterial(
         const std::string& shaderName) const;
 
@@ -87,6 +91,7 @@ public:
     TextureManager* GetTextureManager() const { return textureManager_.get(); }
     ShaderManager* GetShaderManager() const { return shaderManager_.get(); }
     Sprite* GetSprite() const { return sprite_.get(); }
+    ParticleDrawer* GetParticleDrawer() const { return particleDrawer_.get(); }
     PrimitiveDrawer* GetPrimitiveDrawer() const { return primitiveDrawer_.get(); }
     DebugCamera* GetDebugCamera() const { return debugCamera_.get(); }
     DebugCamera* GetEditorCamera() const { return editorCamera_.get(); }
@@ -137,9 +142,13 @@ private:
 
     // ルートシグネチャは共有するが、深度・カリング・ブレンド設定は描画用途別に分ける。
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> object3dPipelineState_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> skySpherePipelineState_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> spritePipelineState_;
+    std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kBlendModeCount>
+        object3dPipelineStates_;
+    std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kBlendModeCount>
+        skySpherePipelineStates_;
+    std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kBlendModeCount>
+        spritePipelineStates_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> outlinePipelineState_;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> shadowRootSignature_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> shadowPipelineState_;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> toneMappingRootSignature_;
@@ -175,6 +184,7 @@ private:
     std::unique_ptr<LightingManager> lightingManager_;
     std::unique_ptr<PrimitiveDrawer> primitiveDrawer_;
     std::unique_ptr<Sprite> sprite_;
+    std::unique_ptr<ParticleDrawer> particleDrawer_;
     std::ostream* logStream_ = nullptr;
 
     bool isImGuiInitialized_ = false;
