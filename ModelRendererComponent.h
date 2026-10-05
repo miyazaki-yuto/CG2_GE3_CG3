@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CommonTypes.h"
+#include "Model.h"
 #include "RendererComponent.h"
 
 #include <memory>
@@ -8,10 +9,9 @@
 #include <utility>
 #include <vector>
 
-class Model;
 class Material;
 
-// GameObjectのTransformを使用して1つのOBJ Modelを描画するComponent。
+// GameObjectのTransformを使用して1つのOBJ／glTF／GLB Modelを描画するComponent。
 // Modelの所有権も持つため、GameObject破棄時にGPUリソースも安全に解放される。
 class ModelRendererComponent final : public RendererComponent {
 public:
@@ -27,6 +27,8 @@ public:
 
     void Render() override;
     void RenderShadow(const Matrix4x4& lightViewProjection) override;
+    void RenderOutline();
+    void Update(float deltaTime) override;
 
     Model* GetModel() const { return model_.get(); }
     const std::shared_ptr<Model>& GetSharedModel() const { return model_; }
@@ -102,8 +104,26 @@ public:
     bool IsLightingEnabled() const { return enableLighting_; }
     void SetLightingEnabled(bool enabled) { enableLighting_ = enabled; }
 
+    bool PlayAnimation(uint32_t animationIndex, bool restart = true);
+    bool PlayAnimation(const std::string& animationName, bool restart = true);
+    void PauseAnimation() { animationPlaying_ = false; }
+    void ResumeAnimation();
+    void StopAnimation();
+    void SetAnimationTime(float timeSeconds);
+    uint32_t GetCurrentAnimationIndex() const { return animationIndex_; }
+    const std::string& GetCurrentAnimationName() const;
+    float GetAnimationTime() const { return animationTimeSeconds_; }
+    float GetCurrentAnimationDuration() const;
+    bool IsAnimationPlaying() const { return animationPlaying_; }
+    bool IsAnimationLooping() const { return animationLooping_; }
+    void SetAnimationLooping(bool looping) { animationLooping_ = looping; }
+    float GetAnimationPlaybackSpeed() const { return animationPlaybackSpeed_; }
+    void SetAnimationPlaybackSpeed(float speed);
+
 private:
     void ResetMaterialOverrides();
+    void ResetAnimationState();
+    void EvaluateCurrentAnimation();
 
     // AssetManagerのキャッシュを複数GameObjectで共有する。
     std::shared_ptr<Model> model_;
@@ -125,4 +145,11 @@ private:
         { 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f }
     };
     bool enableLighting_ = true;
+    ModelPose animationPose_;
+    uint32_t animationIndex_ = 0;
+    float animationTimeSeconds_ = 0.0f;
+    float animationPlaybackSpeed_ = 1.0f;
+    bool animationPlaying_ = false;
+    bool animationLooping_ = true;
+    bool hasAnimationPose_ = false;
 };

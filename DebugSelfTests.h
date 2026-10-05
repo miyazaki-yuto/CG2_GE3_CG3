@@ -20,6 +20,8 @@ void RunPlayMode(
     PlayModeManager& playModeManager,
     LightingManager& lightingManager);
 
+void RunSkeletalAnimation();
+
 } // namespace DebugSelfTests
 
 #endif

@@ -12,6 +12,7 @@
 #include "Material.h"
 #include "Model.h"
 #include "ModelRendererComponent.h"
+#include "ParticleEmitterComponent.h"
 #include "PrimitiveRendererComponent.h"
 #include "PrefabInstanceComponent.h"
 #include "RendererComponent.h"
@@ -540,6 +541,7 @@ bool IsSerializableComponent(const Component& component) {
     return dynamic_cast<const ModelRendererComponent*>(&component) != nullptr ||
         dynamic_cast<const SpriteRendererComponent*>(&component) != nullptr ||
         dynamic_cast<const PrimitiveRendererComponent*>(&component) != nullptr ||
+        dynamic_cast<const ParticleEmitterComponent*>(&component) != nullptr ||
         dynamic_cast<const PrefabInstanceComponent*>(&component) != nullptr ||
         dynamic_cast<const LightComponent*>(&component) != nullptr ||
         dynamic_cast<const CameraComponent*>(&component) != nullptr;
@@ -551,7 +553,10 @@ void WriteRendererCommon(
     int indent) {
     output << ",\n";
     WriteIndent(output, indent);
-    output << "\"renderOrder\": " << renderer.GetRenderOrder();
+    output << "\"renderOrder\": " << renderer.GetRenderOrder() << ",\n";
+    WriteIndent(output, indent);
+    output << "\"blendMode\": ";
+    WriteString(output, GetBlendModeName(renderer.GetBlendMode()));
 }
 
 void WriteComponent(
@@ -588,6 +593,21 @@ void WriteComponent(
         output << "\"skySphere\": "
             << (modelRenderer->GetModel() != nullptr &&
                 modelRenderer->GetModel()->IsSkySphere() ? "true" : "false")
+            << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"animationName\": ";
+        WriteString(output, modelRenderer->GetCurrentAnimationName());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"animationLoop\": "
+            << (modelRenderer->IsAnimationLooping() ? "true" : "false")
+            << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"animationSpeed\": "
+            << modelRenderer->GetAnimationPlaybackSpeed() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"animationPlayOnStart\": "
+            << (modelRenderer->IsAnimationPlaying() ? "true" : "false")
             << ",\n";
         WriteIndent(output, indent + 2);
         output << "\"fallbackTextureGuid\": ";
@@ -844,6 +864,57 @@ void WriteComponent(
         }
         WriteIndent(output, indent + 2);
         output << "]\n";
+    } else if (const auto* particleEmitter =
+        dynamic_cast<const ParticleEmitterComponent*>(&component)) {
+        output << "\"type\": \"ParticleEmitter\",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"enabled\": "
+            << (particleEmitter->IsEnabled() ? "true" : "false");
+        WriteRendererCommon(output, *particleEmitter, indent + 2);
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"textureGuid\": ";
+        WriteString(output, particleEmitter->GetTextureGuid());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"maxParticles\": " << particleEmitter->GetMaxParticles() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"emissionRate\": " << particleEmitter->GetEmissionRate() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"burstCount\": " << particleEmitter->GetBurstCount() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"playOnAwake\": "
+            << (particleEmitter->IsPlayOnAwake() ? "true" : "false") << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"lifetimeMin\": " << particleEmitter->GetLifetimeMin() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"lifetimeMax\": " << particleEmitter->GetLifetimeMax() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"speedMin\": " << particleEmitter->GetSpeedMin() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"speedMax\": " << particleEmitter->GetSpeedMax() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"direction\": ";
+        WriteVector3(output, particleEmitter->GetDirection());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"spread\": " << particleEmitter->GetSpread() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"gravity\": ";
+        WriteVector3(output, particleEmitter->GetGravity());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"startSize\": " << particleEmitter->GetStartSize() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"endSize\": " << particleEmitter->GetEndSize() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"startColor\": ";
+        WriteColor4(output, particleEmitter->GetStartColor());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"endColor\": ";
+        WriteColor4(output, particleEmitter->GetEndColor());
+        output << '\n';
     } else if (const auto* prefab =
         dynamic_cast<const PrefabInstanceComponent*>(&component)) {
         output << "\"type\": \"PrefabInstance\",\n";
@@ -864,9 +935,13 @@ void WriteComponent(
         output << "\"enabled\": " << (light->IsEnabled() ? "true" : "false") << ",\n";
         WriteIndent(output, indent + 2);
         output << "\"lightType\": ";
-        WriteString(output,
-            light->GetLightType() == LightComponent::LightType::Directional
-            ? "Directional" : "Point");
+        const char* lightTypeName = "Point";
+        if (light->GetLightType() == LightComponent::LightType::Directional) {
+            lightTypeName = "Directional";
+        } else if (light->GetLightType() == LightComponent::LightType::Spot) {
+            lightTypeName = "Spot";
+        }
+        WriteString(output, lightTypeName);
         output << ",\n";
         WriteIndent(output, indent + 2);
         output << "\"lightEnabled\": "
@@ -880,7 +955,11 @@ void WriteComponent(
         WriteIndent(output, indent + 2);
         output << "\"radius\": " << light->GetRadius() << ",\n";
         WriteIndent(output, indent + 2);
-        output << "\"decay\": " << light->GetDecay() << '\n';
+        output << "\"decay\": " << light->GetDecay() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"innerAngle\": " << light->GetInnerAngle() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"outerAngle\": " << light->GetOuterAngle() << '\n';
     } else if (const auto* camera =
         dynamic_cast<const CameraComponent*>(&component)) {
         output << "\"type\": \"Camera\",\n";
@@ -932,6 +1011,26 @@ bool ReadString(
         return SetReadError(error, key, "a string");
     }
     result = value->string;
+    return true;
+}
+
+bool ReadRendererBlendMode(
+    const JsonValue& object,
+    BlendMode& result,
+    std::string& error) {
+    result = BlendMode::Normal;
+    const JsonValue* value = object.Find("blendMode");
+    if (value == nullptr) {
+        // 旧形式のSceneには項目がないため、通常αブレンドとして読み込む。
+        return true;
+    }
+    if (value->type != JsonValue::Type::String) {
+        return SetReadError(error, "blendMode", "a string");
+    }
+    if (!TryParseBlendMode(value->string, result)) {
+        error = "Unsupported blend mode: " + value->string;
+        return false;
+    }
     return true;
 }
 
@@ -1140,18 +1239,21 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
     if (type == "ModelRenderer" || type == "SpriteRenderer" ||
         type == "PrimitiveRenderer") {
         int renderOrder = 0;
+        BlendMode blendMode = BlendMode::Normal;
         Vector4 color{};
         UVTransform uv{};
         const JsonValue* colorValue = component.Find("color");
         const JsonValue* uvValue = component.Find("uvTransform");
         std::string assetReference;
         if (!ReadInt(component, "renderOrder", renderOrder, error) ||
+            !ReadRendererBlendMode(component, blendMode, error) ||
             colorValue == nullptr || uvValue == nullptr ||
             !ReadVector4Value(*colorValue, color, error, "color") ||
             !ReadUVTransform(*uvValue, uv, error)) {
             return false;
         }
         (void)renderOrder;
+        (void)blendMode;
         (void)color;
         (void)uv;
 
@@ -1371,20 +1473,73 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
             ReadBool(component, "autoUpdate", autoUpdate, error);
     }
 
+    if (type == "ParticleEmitter") {
+        int renderOrder = 0;
+        int maxParticles = 0;
+        int burstCount = 0;
+        BlendMode blendMode = BlendMode::Add;
+        bool playOnAwake = true;
+        float value = 0.0f;
+        Vector3 vector{};
+        Color4 color{};
+        std::string textureReference;
+        const JsonValue* direction = component.Find("direction");
+        const JsonValue* gravity = component.Find("gravity");
+        const JsonValue* startColor = component.Find("startColor");
+        const JsonValue* endColor = component.Find("endColor");
+        return ReadInt(component, "renderOrder", renderOrder, error) &&
+            ReadRendererBlendMode(component, blendMode, error) &&
+            ReadAssetReference(
+                component, "textureGuid", "texturePath",
+                textureReference, error) &&
+            ReadInt(component, "maxParticles", maxParticles, error) &&
+            maxParticles > 0 &&
+            maxParticles <= static_cast<int>(ParticleDrawer::kMaxParticleCount) &&
+            ReadFloat(component, "emissionRate", value, error) && value >= 0.0f &&
+            ReadInt(component, "burstCount", burstCount, error) && burstCount >= 0 &&
+            ReadBool(component, "playOnAwake", playOnAwake, error) &&
+            ReadFloat(component, "lifetimeMin", value, error) && value > 0.0f &&
+            ReadFloat(component, "lifetimeMax", value, error) && value > 0.0f &&
+            ReadFloat(component, "speedMin", value, error) &&
+            ReadFloat(component, "speedMax", value, error) &&
+            direction != nullptr &&
+            ReadVector3Value(*direction, vector, error, "direction") &&
+            ReadFloat(component, "spread", value, error) && value >= 0.0f &&
+            gravity != nullptr &&
+            ReadVector3Value(*gravity, vector, error, "gravity") &&
+            ReadFloat(component, "startSize", value, error) && value >= 0.0f &&
+            ReadFloat(component, "endSize", value, error) && value >= 0.0f &&
+            startColor != nullptr &&
+            ReadColor4Value(*startColor, color, error, "startColor") &&
+            endColor != nullptr &&
+            ReadColor4Value(*endColor, color, error, "endColor");
+    }
+
     if (type == "Light") {
         std::string lightType;
         bool lightEnabled = false;
         Color4 color{};
         float value = 0.0f;
         const JsonValue* colorValue = component.Find("color");
-        return ReadString(component, "lightType", lightType, error) &&
-            (lightType == "Directional" || lightType == "Point") &&
-            ReadBool(component, "lightEnabled", lightEnabled, error) &&
-            colorValue != nullptr &&
-            ReadColor4Value(*colorValue, color, error, "color") &&
-            ReadFloat(component, "intensity", value, error) &&
-            ReadFloat(component, "radius", value, error) &&
-            ReadFloat(component, "decay", value, error);
+        if (!ReadString(component, "lightType", lightType, error) ||
+            (lightType != "Directional" && lightType != "Point" &&
+             lightType != "Spot") ||
+            !ReadBool(component, "lightEnabled", lightEnabled, error) ||
+            colorValue == nullptr ||
+            !ReadColor4Value(*colorValue, color, error, "color") ||
+            !ReadFloat(component, "intensity", value, error) ||
+            !ReadFloat(component, "radius", value, error) ||
+            !ReadFloat(component, "decay", value, error)) {
+            return false;
+        }
+        if (lightType == "Spot") {
+            float innerAngle = 0.0f;
+            float outerAngle = 0.0f;
+            return ReadFloat(component, "innerAngle", innerAngle, error) &&
+                ReadFloat(component, "outerAngle", outerAngle, error) &&
+                innerAngle > 0.0f && outerAngle >= innerAngle;
+        }
+        return true;
     }
 
     if (type == "Camera") {
@@ -1695,6 +1850,7 @@ bool AddComponentFromJson(
 
     if (type == "ModelRenderer") {
         int renderOrder = 0;
+        BlendMode blendMode = BlendMode::Normal;
         Vector4 color{};
         UVTransform uv{};
         bool lighting = true;
@@ -1702,6 +1858,7 @@ bool AddComponentFromJson(
         const JsonValue* colorValue = source.Find("color");
         const JsonValue* uvValue = source.Find("uvTransform");
         ReadInt(source, "renderOrder", renderOrder, error);
+        ReadRendererBlendMode(source, blendMode, error);
         ReadVector4Value(*colorValue, color, error, "color");
         ReadUVTransform(*uvValue, uv, error);
         ReadBool(source, "lighting", lighting, error);
@@ -2056,7 +2213,36 @@ bool AddComponentFromJson(
                     std::move(shaderMaterial));
             }
         }
+        if (source.Find("animationName") != nullptr) {
+            std::string animationName;
+            if (ReadString(
+                    source, "animationName", animationName, error) &&
+                !animationName.empty()) {
+                component->PlayAnimation(animationName, true);
+            }
+        }
+        if (source.Find("animationLoop") != nullptr) {
+            bool looping = true;
+            if (ReadBool(source, "animationLoop", looping, error)) {
+                component->SetAnimationLooping(looping);
+            }
+        }
+        if (source.Find("animationSpeed") != nullptr) {
+            float speed = 1.0f;
+            if (ReadFloat(source, "animationSpeed", speed, error)) {
+                component->SetAnimationPlaybackSpeed(speed);
+            }
+        }
+        if (source.Find("animationPlayOnStart") != nullptr) {
+            bool playOnStart = true;
+            if (ReadBool(
+                    source, "animationPlayOnStart", playOnStart, error) &&
+                !playOnStart) {
+                component->PauseAnimation();
+            }
+        }
         component->SetRenderOrder(renderOrder);
+        component->SetBlendMode(blendMode);
         component->SetColor(color);
         component->SetUVTransform(uv);
         component->SetLightingEnabled(lighting);
@@ -2066,11 +2252,13 @@ bool AddComponentFromJson(
 
     if (type == "SpriteRenderer") {
         int renderOrder = 0;
+        BlendMode blendMode = BlendMode::Normal;
         Vector4 color{};
         UVTransform uv{};
         const JsonValue* colorValue = source.Find("color");
         const JsonValue* uvValue = source.Find("uvTransform");
         ReadInt(source, "renderOrder", renderOrder, error);
+        ReadRendererBlendMode(source, blendMode, error);
         ReadVector4Value(*colorValue, color, error, "color");
         ReadUVTransform(*uvValue, uv, error);
         const LoadedTextureAsset texture = LoadTextureOrDefault(
@@ -2086,6 +2274,7 @@ bool AddComponentFromJson(
             texture.textureHandle,
             texture.guid);
         component->SetRenderOrder(renderOrder);
+        component->SetBlendMode(blendMode);
         component->SetColor(color);
         component->SetUVTransform(uv);
         component->SetEnabled(enabled);
@@ -2094,6 +2283,7 @@ bool AddComponentFromJson(
 
     if (type == "PrimitiveRenderer") {
         int renderOrder = 0;
+        BlendMode blendMode = BlendMode::Normal;
         Vector4 color{};
         UVTransform uv{};
         std::string primitiveType;
@@ -2101,6 +2291,7 @@ bool AddComponentFromJson(
         const JsonValue* uvValue = source.Find("uvTransform");
         const JsonValue* verticesValue = source.Find("triangleVertices");
         ReadInt(source, "renderOrder", renderOrder, error);
+        ReadRendererBlendMode(source, blendMode, error);
         ReadVector4Value(*colorValue, color, error, "color");
         ReadUVTransform(*uvValue, uv, error);
         ReadString(source, "primitiveType", primitiveType, error);
@@ -2120,6 +2311,7 @@ bool AddComponentFromJson(
             texture.textureHandle,
             texture.guid);
         component->SetRenderOrder(renderOrder);
+        component->SetBlendMode(blendMode);
         component->SetColor(color);
         component->SetUVTransform(uv);
 
@@ -2137,6 +2329,72 @@ bool AddComponentFromJson(
                 error, "vertex.normal");
         }
         component->SetTriangleVertices(vertices);
+        component->SetEnabled(enabled);
+        return true;
+    }
+
+    if (type == "ParticleEmitter") {
+        int renderOrder = RendererComponent::kTransparentRenderOrder;
+        int maxParticles = 1000;
+        int burstCount = 0;
+        BlendMode blendMode = BlendMode::Add;
+        bool playOnAwake = true;
+        float emissionRate = 100.0f;
+        float lifetimeMin = 1.0f;
+        float lifetimeMax = 2.0f;
+        float speedMin = 1.0f;
+        float speedMax = 3.0f;
+        float spread = 0.5f;
+        float startSize = 0.5f;
+        float endSize = 0.0f;
+        Vector3 direction{};
+        Vector3 gravity{};
+        Color4 startColor{};
+        Color4 endColor{};
+        ReadInt(source, "renderOrder", renderOrder, error);
+        ReadRendererBlendMode(source, blendMode, error);
+        ReadInt(source, "maxParticles", maxParticles, error);
+        ReadInt(source, "burstCount", burstCount, error);
+        ReadBool(source, "playOnAwake", playOnAwake, error);
+        ReadFloat(source, "emissionRate", emissionRate, error);
+        ReadFloat(source, "lifetimeMin", lifetimeMin, error);
+        ReadFloat(source, "lifetimeMax", lifetimeMax, error);
+        ReadFloat(source, "speedMin", speedMin, error);
+        ReadFloat(source, "speedMax", speedMax, error);
+        ReadVector3Value(*source.Find("direction"), direction, error, "direction");
+        ReadFloat(source, "spread", spread, error);
+        ReadVector3Value(*source.Find("gravity"), gravity, error, "gravity");
+        ReadFloat(source, "startSize", startSize, error);
+        ReadFloat(source, "endSize", endSize, error);
+        ReadColor4Value(
+            *source.Find("startColor"), startColor, error, "startColor");
+        ReadColor4Value(*source.Find("endColor"), endColor, error, "endColor");
+        const LoadedTextureAsset texture = LoadTextureOrDefault(
+            source,
+            "textureGuid",
+            "texturePath",
+            assetManager,
+            defaultTextureHandle,
+            defaultTextureGuid,
+            warnings);
+        auto* component = owner.AddComponent<ParticleEmitterComponent>(
+            graphics != nullptr ? graphics->GetParticleDrawer() : nullptr,
+            texture.textureHandle,
+            texture.guid);
+        component->SetRenderOrder(renderOrder);
+        component->SetBlendMode(blendMode);
+        component->SetMaxParticles(static_cast<uint32_t>(maxParticles));
+        component->SetEmissionRate(emissionRate);
+        component->SetBurstCount(static_cast<uint32_t>(burstCount));
+        component->SetPlayOnAwake(playOnAwake);
+        component->SetLifetimeRange(lifetimeMin, lifetimeMax);
+        component->SetSpeedRange(speedMin, speedMax);
+        component->SetDirection(direction);
+        component->SetSpread(spread);
+        component->SetGravity(gravity);
+        component->SetSizeRange(startSize, endSize);
+        component->SetStartColor(startColor);
+        component->SetEndColor(endColor);
         component->SetEnabled(enabled);
         return true;
     }
@@ -2159,21 +2417,36 @@ bool AddComponentFromJson(
         float intensity = 1.0f;
         float radius = 10.0f;
         float decay = 2.0f;
+        float innerAngle = 0.34906585f;
+        float outerAngle = 0.52359878f;
         ReadString(source, "lightType", lightType, error);
         ReadBool(source, "lightEnabled", lightEnabled, error);
         ReadColor4Value(*source.Find("color"), color, error, "color");
         ReadFloat(source, "intensity", intensity, error);
         ReadFloat(source, "radius", radius, error);
         ReadFloat(source, "decay", decay, error);
+        if (source.Find("innerAngle") != nullptr) {
+            ReadFloat(source, "innerAngle", innerAngle, error);
+        }
+        if (source.Find("outerAngle") != nullptr) {
+            ReadFloat(source, "outerAngle", outerAngle, error);
+        }
+        LightComponent::LightType parsedLightType =
+            LightComponent::LightType::Point;
+        if (lightType == "Directional") {
+            parsedLightType = LightComponent::LightType::Directional;
+        } else if (lightType == "Spot") {
+            parsedLightType = LightComponent::LightType::Spot;
+        }
         auto* component = owner.AddComponent<LightComponent>(
             graphics != nullptr ? graphics->GetLightingManager() : nullptr,
-            lightType == "Directional"
-            ? LightComponent::LightType::Directional
-            : LightComponent::LightType::Point);
+            parsedLightType);
         component->SetColor(color);
         component->SetIntensity(intensity);
         component->SetRadius(radius);
         component->SetDecay(decay);
+        component->SetOuterAngle(outerAngle);
+        component->SetInnerAngle(innerAngle);
         component->SetLightEnabled(lightEnabled);
         component->ApplyLight();
         component->SetEnabled(enabled);

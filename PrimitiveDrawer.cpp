@@ -54,7 +54,8 @@ void PrimitiveDrawer::Initialize(
     LightingManager* lightingManager,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
-    ID3D12PipelineState* pipelineState,
+    const std::array<
+        ID3D12PipelineState*, kBlendModeCount>& pipelineStates,
     ID3D12RootSignature* shadowRootSignature,
     ID3D12PipelineState* shadowPipelineState) {
     assert(dxCommon != nullptr);
@@ -62,7 +63,9 @@ void PrimitiveDrawer::Initialize(
     assert(lightingManager != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
-    assert(pipelineState != nullptr);
+    for (ID3D12PipelineState* pipelineState : pipelineStates) {
+        assert(pipelineState != nullptr);
+    }
     assert(shadowRootSignature != nullptr);
     assert(shadowPipelineState != nullptr);
 
@@ -71,7 +74,9 @@ void PrimitiveDrawer::Initialize(
     lightingManager_ = lightingManager;
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
-    pipelineState_ = pipelineState;
+    for (size_t index = 0; index < pipelineStates_.size(); ++index) {
+        pipelineStates_[index] = pipelineStates[index];
+    }
     shadowRootSignature_ = shadowRootSignature;
     shadowPipelineState_ = shadowPipelineState;
 
@@ -163,15 +168,22 @@ void PrimitiveDrawer::CreateSphereResources() {
 void PrimitiveDrawer::BeginFrame() {
     triangleDrawCount_ = 0;
     sphereDrawCount_ = 0;
+    const DynamicBufferAllocation skinningAllocation =
+        dxCommon_->AllocateDynamicBuffer(sizeof(SkinningConstants));
+    *static_cast<SkinningConstants*>(skinningAllocation.cpuAddress) = {};
+    disabledSkinningGpuAddress_ = skinningAllocation.gpuAddress;
 }
 
-void PrimitiveDrawer::SetCommonDrawState(int fallbackTextureHandle) {
+void PrimitiveDrawer::SetCommonDrawState(
+    int fallbackTextureHandle,
+    BlendMode blendMode) {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureManager_->GetSrvHeap() };
     // SRVを使う前に、シェーダーから参照可能なディスクリプタヒープを設定する。
     commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
-    commandList->SetPipelineState(pipelineState_.Get());
+    commandList->SetPipelineState(
+        pipelineStates_[GetBlendModeIndex(blendMode)].Get());
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     // 全描画クラスで共有する平行光源を、ルートパラメータ3（b2）へ設定する。
     commandList->SetGraphicsRootConstantBufferView(
@@ -189,6 +201,11 @@ void PrimitiveDrawer::SetCommonDrawState(int fallbackTextureHandle) {
         6, textureManager_->GetSrvHandleGPU(environmentTextureHandle));
     commandList->SetGraphicsRootDescriptorTable(
         7, textureManager_->GetPointShadowSrvHandleGPU());
+    // PrimitiveはPBR Mapを持たないため、有効なDummy SRVだけ設定する。
+    commandList->SetGraphicsRootDescriptorTable(
+        9, textureManager_->GetSrvHandleGPU(fallbackTextureHandle));
+    commandList->SetGraphicsRootConstantBufferView(
+        10, disabledSkinningGpuAddress_);
 }
 
 void PrimitiveDrawer::SetShadowDrawState() {
@@ -196,6 +213,8 @@ void PrimitiveDrawer::SetShadowDrawState() {
     commandList->SetGraphicsRootSignature(shadowRootSignature_.Get());
     commandList->SetPipelineState(shadowPipelineState_.Get());
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    commandList->SetGraphicsRootConstantBufferView(
+        1, disabledSkinningGpuAddress_);
 }
 
 void PrimitiveDrawer::DrawTriangle(
@@ -203,7 +222,8 @@ void PrimitiveDrawer::DrawTriangle(
     const Matrix4x4& worldMatrix,
     const Vector4& color,
     int textureHandle,
-    const UVTransform& uvTransform) {
+    const UVTransform& uvTransform,
+    BlendMode blendMode) {
     assert(dxCommon_ != nullptr);
     assert(vertices != nullptr);
     assert(textureHandle >= 0);
@@ -235,7 +255,7 @@ void PrimitiveDrawer::DrawTriangle(
             dxCommon_, worldMatrix, debugCamera_->GetViewProjectionMatrix());
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    SetCommonDrawState(textureHandle);
+    SetCommonDrawState(textureHandle, blendMode);
     commandList->IASetVertexBuffers(0, 1, &triangleVertexBufferView);
     commandList->IASetIndexBuffer(&triangleIndexBufferView_);
     commandList->SetGraphicsRootConstantBufferView(
@@ -253,7 +273,8 @@ void PrimitiveDrawer::DrawSphere(
     const Matrix4x4& worldMatrix,
     const Vector4& color,
     int textureHandle,
-    const UVTransform& uvTransform) {
+    const UVTransform& uvTransform,
+    BlendMode blendMode) {
     assert(dxCommon_ != nullptr);
     assert(textureHandle >= 0);
 
@@ -269,7 +290,7 @@ void PrimitiveDrawer::DrawSphere(
             dxCommon_, worldMatrix, debugCamera_->GetViewProjectionMatrix());
 
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    SetCommonDrawState(textureHandle);
+    SetCommonDrawState(textureHandle, blendMode);
     // 球の頂点バッファ、b0（Material）、b1（WVP）、t0（Texture）を順にバインドする。
     commandList->IASetVertexBuffers(0, 1, &sphereVertexBufferView_);
     commandList->IASetIndexBuffer(&sphereIndexBufferView_);

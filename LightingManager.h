@@ -11,7 +11,7 @@
 
 class DirectXCommon;
 
-// シーンで共有するSunとPoint Lightを1か所で管理するクラス。
+// シーンで共有するDirectional・Point・Spot Lightを1か所で管理するクラス。
 // Primitive・Model・Spriteが個別に同じ定数バッファを作る必要をなくす。
 class LightingManager {
 public:
@@ -42,8 +42,14 @@ public:
     void UnregisterPointLight(LightHandle handle);
     const PointLight* GetPointLight(LightHandle handle) const;
 
+    LightHandle RegisterSpotLight(const SpotLight& light);
+    bool UpdateSpotLight(LightHandle handle, const SpotLight& light);
+    void UnregisterSpotLight(LightHandle handle);
+    const SpotLight* GetSpotLight(LightHandle handle) const;
+
     uint32_t GetDirectionalLightCount() const;
     uint32_t GetPointLightCount() const;
+    uint32_t GetSpotLightCount() const;
     bool GetFirstEnabledDirectionalLight(
         DirectionalLight& light,
         uint32_t& lightIndex) const;
@@ -118,6 +124,7 @@ private:
     // GPUへ送るenabledとは別に、CPU側でスロットの使用状態を管理する。
     std::array<bool, kMaxDirectionalLights> directionalLightSlots_{};
     std::array<bool, kMaxPointLights> pointLightSlots_{};
+    std::array<bool, kMaxSpotLights> spotLightSlots_{};
     int environmentTextureHandle_ = -1;
     std::string environmentTextureGuid_;
     D3D12_GPU_VIRTUAL_ADDRESS lightingGpuAddress_ = 0;

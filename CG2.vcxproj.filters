@@ -46,6 +46,9 @@
     <Filter Include="ソース ファイル\Engine\Shader">
       <UniqueIdentifier>{a3b1a331-a072-43e2-848c-f4a52b08f169}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Engine\Editor">
+      <UniqueIdentifier>{62b96c6f-8f11-42ed-8fca-9e73935ee994}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ヘッダー ファイル\Engine">
       <UniqueIdentifier>{e24a1377-a883-47d7-a068-9e5f54f95628}</UniqueIdentifier>
     </Filter>
@@ -54,6 +57,9 @@
     </Filter>
     <Filter Include="ヘッダー ファイル\Engine\Engine">
       <UniqueIdentifier>{d834d23f-c369-482c-91cf-5d925b6d7c01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Engine\Editor">
+      <UniqueIdentifier>{49bf9e78-5928-42a9-a14f-ff2c19f13cf0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -82,7 +88,61 @@
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
     <ClCompile Include="Editor.cpp">
-      <Filter>ソース ファイル\Engine</Filter>
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorGizmo.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorCameraInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorDockSpace.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorHierarchy.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorHistory.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorInspectorUtilities.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorLightInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorModelRendererInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorParticleEmitterInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorPlayModePanel.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorPrefabInstanceInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorPrimitiveRendererInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorRendererInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorSelection.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorSpriteRendererInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorUtilityPanels.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorViewport.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
     </ClCompile>
     <ClCompile Include="GameTimer.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
@@ -167,6 +227,15 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+	<ClCompile Include="ParticleDrawer.cpp">
+	  <Filter>ソース ファイル\Engine\Graphics</Filter>
+	</ClCompile>
+	<ClCompile Include="ParticleEmitterComponent.cpp">
+	  <Filter>ソース ファイル\Engine</Filter>
+	</ClCompile>
+	<ClInclude Include="BlendMode.h">
+	  <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+	</ClInclude>
 	<ClInclude Include="AssetManager.h">
 	  <Filter>ヘッダー ファイル\Engine</Filter>
 	</ClInclude>
@@ -255,7 +324,19 @@
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
     <ClInclude Include="Editor.h">
-      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+      <Filter>ヘッダー ファイル\Engine\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorContext.h">
+      <Filter>ヘッダー ファイル\Engine\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorHistory.h">
+      <Filter>ヘッダー ファイル\Engine\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorInspectorUtilities.h">
+      <Filter>ヘッダー ファイル\Engine\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorUtilityPanels.h">
+      <Filter>ヘッダー ファイル\Engine\Editor</Filter>
     </ClInclude>
     <ClInclude Include="GameTimer.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
@@ -304,6 +385,12 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+	<ClInclude Include="ParticleDrawer.h">
+	  <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+	</ClInclude>
+	<ClInclude Include="ParticleEmitterComponent.h">
+	  <Filter>ヘッダー ファイル\Engine</Filter>
+	</ClInclude>
     <FxCompile Include="Object3d.PS.hlsl">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </FxCompile>
@@ -316,12 +403,25 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="IMPLEMENTED_FEATURES.md" />
+	<None Include="Particle.PS.hlsl">
+	  <Filter>ソース ファイル\Engine\Shader</Filter>
+	</None>
+	<None Include="Particle.VS.hlsl">
+	  <Filter>ソース ファイル\Engine\Shader</Filter>
+	</None>
+    <None Include="Outline.PS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="Outline.VS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
     <None Include="Object3d.hlsli">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </None>
     <None Include="ShadowMap.VS.hlsl">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </None>
+    <None Include="Skinning.hlsli" />
     <None Include="ToneMapping.PS.hlsl">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </None>

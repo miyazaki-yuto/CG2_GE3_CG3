@@ -1091,9 +1091,13 @@ Unityのようなプロパティ単位のOverrideやNested Prefabはまだ実装
 
 ### Model／Material
 
-- Model形式はOBJ／MTLに限定されています。
-- FBX、glTF、Animation付きModelは読み込めません。
-- Metallic／Roughness Texture Mapは未対応で、現在はMaterial Slotごとの数値設定です。
+- OBJ／MTL、glTF／GLBはAssimp v6.0.5で読み込みます。
+- 三角形化、頂点共有、法線生成、接線生成、左手座標系変換を読み込み時に行います。
+- glTFの複数Mesh、Node親子階層、PBR Material、GLB内蔵画像に対応しています。
+- Metallic-Roughness TextureはglTF 2.0仕様どおりGをRoughness、BをMetallicとして使用します。
+- glTFのBone、1頂点最大4ウェイトのGPU Skinning、複数Animation Clipの再生・切り替えに対応しています。
+- Animationごとの再生速度、Loop、Pause、Stop、Time操作とScene保存に対応しています。
+- Bone上限は1Modelあたり128本です。Morph TargetとAnimation Blend／Cross Fadeは未対応です。
 - IBLは通常Mip Mapを利用した近似で、Irradiance／Prefilter／BRDF LUTは未対応です。
 - 半透明Object専用のSorting／Blend Pipelineはありません。
 
@@ -1158,3 +1162,11 @@ Unityのようなプロパティ単位のOverrideやNested Prefabはまだ実装
 - FPS／Frame Time表示追加後のDebug起動を8秒間実行: 成功
 - Debug起動時の`MainScene.json`自動読み込みとEdit Mode描画を10秒間実行: 成功
 - Startup Scene／Shadow Map処理整理後のDebug・Release描画を各10秒間実行: 成功
+- Assimp OBJ Importer追加後のDebug／Development／Releaseビルド: 成功、エラー0
+- Assimpで既存`cube.obj`を読み込んだDebug起動を6秒間実行: 成功
+- glTF（9 Mesh／12 Node）の複数Mesh・親子階層読み込みテスト: 成功
+- GLB内蔵画像のメモリ読込・GPU Texture生成テスト: 成功
+- glTF Metallic-Roughness TextureのLinear読込・Handle生成テスト: 成功
+- glTF／GLB対応後のDebug／Development／Releaseビルド: 成功、エラー0
+- `simple_skin.gltf`のBone／Weight／Animation Clip読み込み・Pose評価自己テスト: 成功
+- Skeletal Animation追加後のDebug起動8秒・Development／Releaseビルド: 成功

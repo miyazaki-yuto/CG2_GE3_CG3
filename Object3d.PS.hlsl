@@ -8,6 +8,8 @@ SamplerComparisonState gShadowSampler : register(s1);
 Texture2D<float4> gNormalTexture : register(t2);
 Texture2D<float4> gEnvironmentTexture : register(t3);
 TextureCube<float> gPointShadowMap : register(t4);
+// glTF 2.0のMetallic-Roughness画像はG=Roughness、B=Metallic。
+Texture2D<float4> gMetallicRoughnessTexture : register(t5);
 
 static const float kPi = 3.14159265358979323846f;
 
@@ -350,6 +352,14 @@ float4 main(VertexShaderOutput input) : SV_TARGET
             textureColor.rgb * gMaterialColor.rgb;
         float metallic = saturate(gMaterialMetallic);
         float roughness = clamp(gMaterialRoughness, 0.04f, 1.0f);
+        if (gMetallicRoughnessMapEnabled != 0)
+        {
+            float4 metallicRoughnessSample =
+                gMetallicRoughnessTexture.Sample(gSampler, transformedUV.xy);
+            roughness = clamp(
+                roughness * metallicRoughnessSample.g, 0.04f, 1.0f);
+            metallic = saturate(metallic * metallicRoughnessSample.b);
+        }
 
         [unroll]
         for (int directionalIndex = 0;
@@ -464,6 +474,72 @@ float4 main(VertexShaderOutput input) : SV_TARGET
                         pointSpecular *
                         attenuation *
                         pointShadowVisibility;
+                }
+            }
+        }
+
+        [loop]
+        for (int spotIndex = 0;
+            spotIndex < kMaxSpotLights;
+            ++spotIndex)
+        {
+            SpotLight spotLight = gSpotLights[spotIndex];
+            if (spotLight.enabled == 0)
+            {
+                continue;
+            }
+
+            float3 toLight = spotLight.position - input.worldPosition;
+            float distanceToLight = length(toLight);
+            float3 spotDirection = toLight / max(distanceToLight, 0.0001f);
+            float normalizedDistance =
+                distanceToLight / max(spotLight.radius, 0.0001f);
+            float distanceAttenuation = pow(
+                saturate(1.0f - normalizedDistance),
+                max(spotLight.decay, 0.0001f));
+            float coneCosine = dot(
+                -spotDirection, normalize(spotLight.direction));
+            float coneAttenuation = smoothstep(
+                spotLight.cosOuterAngle,
+                spotLight.cosInnerAngle,
+                coneCosine);
+            float attenuation = distanceAttenuation * coneAttenuation;
+            if (attenuation <= 0.0f)
+            {
+                continue;
+            }
+
+            if (gLightingMode == kLightingModePBR)
+            {
+                pbrDirectLight += EvaluatePbrLight(
+                    normal,
+                    viewDirection,
+                    spotDirection,
+                    surfaceColor,
+                    metallic,
+                    roughness) *
+                    spotLight.color.rgb *
+                    spotLight.intensity *
+                    attenuation;
+            }
+            else
+            {
+                float spotDiffuse =
+                    CalculateSceneDiffuse(normal, spotDirection);
+                accumulatedLight +=
+                    spotLight.color.rgb *
+                    spotLight.intensity *
+                    spotDiffuse *
+                    attenuation;
+                if (gLightingMode == kLightingModeCurrent)
+                {
+                    float spotSpecular = CalculateSpecular(
+                        normal, spotDirection, viewDirection);
+                    accumulatedSpecular +=
+                        spotLight.color.rgb *
+                        spotLight.intensity *
+                        spotSpecular *
+                        attenuation;
                 }
             }
         }

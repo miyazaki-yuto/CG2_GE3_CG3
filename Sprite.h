@@ -2,6 +2,8 @@
 
 #include <d3d12.h>
 #include <wrl.h>
+#include <array>
+#include "BlendMode.h"
 #include "CommonTypes.h"
 
 class DirectXCommon;
@@ -25,7 +27,8 @@ public:
         LightingManager* lightingManager,
         TextureManager* textureManager,
         ID3D12RootSignature* rootSignature,
-        ID3D12PipelineState* pipelineState,
+        const std::array<
+            ID3D12PipelineState*, kBlendModeCount>& pipelineStates,
         uint32_t windowWidth,
         uint32_t windowHeight);
 
@@ -43,7 +46,8 @@ public:
         const Matrix4x4& worldMatrix,
         const Vector4& color,
         int textureHandle,
-        const UVTransform& uvTransform);
+        const UVTransform& uvTransform,
+        BlendMode blendMode);
 
 private:
     // 四角形は4頂点を共有し、6インデックスで2枚の三角形として描画する。
@@ -59,7 +63,8 @@ private:
 
     // ルートシグネチャとPSOは3D描画と共有する。
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
+    std::array<Microsoft::WRL::ComPtr<ID3D12PipelineState>, kBlendModeCount>
+        pipelineStates_;
 
     // 頂点のひな形はCPU側に保持し、Draw時に安全なフレーム用領域へコピーする。
     TextureVertexData vertices_[kVertexCount]{};
@@ -71,4 +76,5 @@ private:
     uint32_t windowWidth_ = 0;
     uint32_t windowHeight_ = 0;
     uint32_t spriteDrawCount_ = 0;
+    D3D12_GPU_VIRTUAL_ADDRESS disabledSkinningGpuAddress_ = 0;
 };

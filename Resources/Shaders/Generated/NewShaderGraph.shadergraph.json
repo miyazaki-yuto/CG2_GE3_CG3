@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "NewShaderGraph",
+  "nodes": [
+    { "id": 1, "type": "Texture", "name": "MainTexture", "x": 30, "y": 80, "value": [1, 1, 1, 1], "inputA": 0, "inputB": 0 },
+    { "id": 2, "type": "Color", "name": "Tint", "x": 30, "y": 250, "value": [1, 1, 1, 1], "inputA": 0, "inputB": 0 },
+    { "id": 3, "type": "Multiply", "name": "Multiply", "x": 300, "y": 150, "value": [1, 1, 1, 1], "inputA": 1, "inputB": 2 },
+    { "id": 4, "type": "Output", "name": "Output", "x": 570, "y": 170, "value": [1, 1, 1, 1], "inputA": 3, "inputB": 0 }
+  ]
+}

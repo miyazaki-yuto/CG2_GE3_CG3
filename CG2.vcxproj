@@ -67,7 +67,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -96,7 +96,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -123,7 +123,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -141,6 +141,8 @@
 	<ClCompile Include="AssetManager.cpp" />
 	<ClCompile Include="PrefabManager.cpp" />
 	<ClCompile Include="PrefabInstanceComponent.cpp" />
+	<ClCompile Include="ParticleDrawer.cpp" />
+	<ClCompile Include="ParticleEmitterComponent.cpp" />
 	<ClCompile Include="PlayModeManager.cpp" />
     <ClCompile Include="CameraComponent.cpp" />
     <ClCompile Include="DebugCamera.cpp" />
@@ -150,6 +152,24 @@
     <ClCompile Include="DebugSelfTests.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Editor.cpp" />
+    <ClCompile Include="EditorGizmo.cpp" />
+    <ClCompile Include="EditorCameraInspector.cpp" />
+    <ClCompile Include="EditorDockSpace.cpp" />
+    <ClCompile Include="EditorHierarchy.cpp" />
+    <ClCompile Include="EditorHistory.cpp" />
+    <ClCompile Include="EditorInspector.cpp" />
+    <ClCompile Include="EditorInspectorUtilities.cpp" />
+    <ClCompile Include="EditorLightInspector.cpp" />
+    <ClCompile Include="EditorModelRendererInspector.cpp" />
+    <ClCompile Include="EditorParticleEmitterInspector.cpp" />
+    <ClCompile Include="EditorPlayModePanel.cpp" />
+    <ClCompile Include="EditorPrefabInstanceInspector.cpp" />
+    <ClCompile Include="EditorPrimitiveRendererInspector.cpp" />
+    <ClCompile Include="EditorRendererInspector.cpp" />
+    <ClCompile Include="EditorSelection.cpp" />
+    <ClCompile Include="EditorSpriteRendererInspector.cpp" />
+    <ClCompile Include="EditorUtilityPanels.cpp" />
+    <ClCompile Include="EditorViewport.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="GameTimer.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp">
@@ -195,9 +215,12 @@
     <ClCompile Include="TransformComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
+	<ClInclude Include="BlendMode.h" />
 	<ClInclude Include="AssetManager.h" />
 	<ClInclude Include="PrefabManager.h" />
 	<ClInclude Include="PrefabInstanceComponent.h" />
+	<ClInclude Include="ParticleDrawer.h" />
+	<ClInclude Include="ParticleEmitterComponent.h" />
 	<ClInclude Include="PlayModeManager.h" />
     <ClInclude Include="CameraComponent.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -209,6 +232,10 @@
     <ClInclude Include="DebugSelfTests.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="Editor.h" />
+    <ClInclude Include="EditorContext.h" />
+    <ClInclude Include="EditorHistory.h" />
+    <ClInclude Include="EditorInspectorUtilities.h" />
+    <ClInclude Include="EditorUtilityPanels.h" />
     <ClInclude Include="GameTimer.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="externals\imgui\imconfig.h" />
@@ -263,6 +290,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="externals\imgui\LICENSE.txt" />
+    <Text Include="externals\assimp\LICENSE" />
   </ItemGroup>
   <ItemGroup>
     <None Include="IMPLEMENTED_FEATURES.md" />
@@ -270,6 +298,10 @@
     <None Include="Resources\bgm.wav" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="externals\assimp\build-v143\code\assimp.vcxproj">
+      <Project>{c4066124-7d65-338c-9b27-cc4d0910fac3}</Project>
+      <AdditionalProperties Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Configuration=RelWithDebInfo;Platform=x64</AdditionalProperties>
+    </ProjectReference>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
       <Project>{371b9fa9-4c90-4ac6-a123-aced756d6c77}</Project>
       <AdditionalProperties Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Configuration=Profile;Platform=x64</AdditionalProperties>
@@ -277,7 +309,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Object3d.hlsli" />
+    <None Include="Particle.PS.hlsl" />
+    <None Include="Particle.VS.hlsl" />
+    <None Include="Outline.PS.hlsl" />
+    <None Include="Outline.VS.hlsl" />
     <None Include="ShadowMap.VS.hlsl" />
+    <None Include="Skinning.hlsli" />
     <None Include="ToneMapping.PS.hlsl" />
     <None Include="ToneMapping.VS.hlsl" />
     <None Include="Resources\Shaders\StandardObject3D.shader.json" />

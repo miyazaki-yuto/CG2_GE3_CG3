@@ -9,6 +9,55 @@
 
 namespace DX12Utility {
 
+D3D12_BLEND_DESC CreateBlendDesc(BlendMode blendMode) {
+    D3D12_BLEND_DESC blendDesc{};
+    D3D12_RENDER_TARGET_BLEND_DESC& blend = blendDesc.RenderTarget[0];
+    blend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    blend.SrcBlendAlpha = D3D12_BLEND_ONE;
+    blend.DestBlendAlpha = D3D12_BLEND_ZERO;
+    blend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+
+    switch (blendMode) {
+    case BlendMode::None:
+        blend.BlendEnable = FALSE;
+        break;
+    case BlendMode::Normal:
+        blend.BlendEnable = TRUE;
+        blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        blend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+        blend.BlendOp = D3D12_BLEND_OP_ADD;
+        break;
+    case BlendMode::Add:
+        blend.BlendEnable = TRUE;
+        blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        blend.DestBlend = D3D12_BLEND_ONE;
+        blend.BlendOp = D3D12_BLEND_OP_ADD;
+        break;
+    case BlendMode::Subtract:
+        blend.BlendEnable = TRUE;
+        blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        blend.DestBlend = D3D12_BLEND_ONE;
+        blend.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+        break;
+    case BlendMode::Multiply:
+        blend.BlendEnable = TRUE;
+        blend.SrcBlend = D3D12_BLEND_ZERO;
+        blend.DestBlend = D3D12_BLEND_SRC_COLOR;
+        blend.BlendOp = D3D12_BLEND_OP_ADD;
+        break;
+    case BlendMode::Screen:
+        blend.BlendEnable = TRUE;
+        blend.SrcBlend = D3D12_BLEND_INV_DEST_COLOR;
+        blend.DestBlend = D3D12_BLEND_ONE;
+        blend.BlendOp = D3D12_BLEND_OP_ADD;
+        break;
+    case BlendMode::Count:
+        assert(false && "BlendMode::Count is not a drawable mode.");
+        return CreateBlendDesc(BlendMode::Normal);
+    }
+    return blendDesc;
+}
+
 void Log(std::ostream& os, const std::string& message) {
     // ファイルへ残すだけでなく、Visual Studioの出力ウィンドウでも確認できるようにする。
     os << message << std::endl;

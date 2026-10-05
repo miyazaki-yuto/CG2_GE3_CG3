@@ -6,6 +6,10 @@
 #include <wrl.h>
 #include <vector>
 
+namespace DirectX {
+class ScratchImage;
+}
+
 // 画像ファイルをGPUテクスチャへ変換し、SRVディスクリプタの番号で管理するクラス。
 class TextureManager {
 public:
@@ -14,6 +18,21 @@ public:
     // 同じファイルはキャッシュから返し、重複してGPUメモリを使わない。
     int LoadTexture(
         const std::string& filePath,
+        ID3D12GraphicsCommandList* commandList,
+        bool useSrgb = true);
+    // GLBなどに埋め込まれたPNG／JPEGデータをファイルへ展開せず読み込む。
+    int LoadTextureFromMemory(
+        const std::string& cacheKey,
+        const uint8_t* encodedData,
+        size_t encodedSize,
+        ID3D12GraphicsCommandList* commandList,
+        bool useSrgb = true);
+    // Assimpが展開済みRGBAとして返した埋め込み画像用。
+    int LoadTextureFromRgbaMemory(
+        const std::string& cacheKey,
+        const uint8_t* rgbaData,
+        uint32_t width,
+        uint32_t height,
         ID3D12GraphicsCommandList* commandList,
         bool useSrgb = true);
 
@@ -116,6 +135,12 @@ public:
     }
 
 private:
+    int CreateTextureFromImage(
+        const std::string& cacheKey,
+        const std::string& sourcePath,
+        const DirectX::ScratchImage& mipImages,
+        ID3D12GraphicsCommandList* commandList);
+
     struct IntermediateResourceBatch {
         uint64_t fenceValue = 0;
         std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> resources;

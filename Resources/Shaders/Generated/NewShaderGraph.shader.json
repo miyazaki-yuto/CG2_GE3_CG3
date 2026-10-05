@@ -1,0 +1,12 @@
+{
+  "name": "NewShaderGraph",
+  "vertexShader": "../../../Object3d.VS.hlsl",
+  "pixelShader": "NewShaderGraph.generated.PS.hlsl",
+  "blend": "Alpha",
+  "cull": "Back",
+  "depthTest": true,
+  "depthWrite": true,
+  "parameters": [
+    { "name": "Tint", "type": "color", "offset": 0, "default": [1, 1, 1, 1] }
+  ]
+}

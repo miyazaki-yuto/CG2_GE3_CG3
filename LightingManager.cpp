@@ -32,6 +32,24 @@ PointLight SanitizePointLight(const PointLight& light) {
     return result;
 }
 
+SpotLight SanitizeSpotLight(const SpotLight& light) {
+    SpotLight result = light;
+    if (result.direction.Length() <= 0.0001f) {
+        result.direction = { 0.0f, -1.0f, 0.0f };
+    } else {
+        result.direction.Normalize();
+    }
+    result.intensity = (std::max)(result.intensity, 0.0f);
+    result.radius = (std::max)(result.radius, 0.001f);
+    result.decay = (std::max)(result.decay, 0.001f);
+    result.cosOuterAngle = (std::clamp)(result.cosOuterAngle, -1.0f, 1.0f);
+    result.cosInnerAngle = (std::clamp)(result.cosInnerAngle, -1.0f, 1.0f);
+    result.cosInnerAngle = (std::max)(
+        result.cosInnerAngle, result.cosOuterAngle);
+    result.enabled = result.enabled != 0 ? 1 : 0;
+    return result;
+}
+
 bool IsHandleInRange(
     LightingManager::LightHandle handle,
     uint32_t capacity) {
@@ -48,6 +66,7 @@ void LightingManager::Initialize(DirectXCommon* dxCommon) {
     lightingData_ = {};
     directionalLightSlots_.fill(false);
     pointLightSlots_.fill(false);
+    spotLightSlots_.fill(false);
 
     SetCameraPosition({ 0.0f, 0.0f, -10.0f });
     SetLightingMode(LightingMode::Current);
@@ -172,6 +191,50 @@ const PointLight* LightingManager::GetPointLight(
     return &lightingData_.pointLights[handle];
 }
 
+LightingManager::LightHandle LightingManager::RegisterSpotLight(
+    const SpotLight& light) {
+    for (uint32_t index = 0; index < kMaxSpotLights; ++index) {
+        if (spotLightSlots_[index]) {
+            continue;
+        }
+        spotLightSlots_[index] = true;
+        lightingData_.spotLights[index] = SanitizeSpotLight(light);
+        lightingGpuAddress_ = 0;
+        return static_cast<LightHandle>(index);
+    }
+    return kInvalidLightHandle;
+}
+
+bool LightingManager::UpdateSpotLight(
+    LightHandle handle,
+    const SpotLight& light) {
+    if (!IsHandleInRange(handle, kMaxSpotLights) ||
+        !spotLightSlots_[handle]) {
+        return false;
+    }
+    lightingData_.spotLights[handle] = SanitizeSpotLight(light);
+    lightingGpuAddress_ = 0;
+    return true;
+}
+
+void LightingManager::UnregisterSpotLight(LightHandle handle) {
+    if (!IsHandleInRange(handle, kMaxSpotLights) ||
+        !spotLightSlots_[handle]) {
+        return;
+    }
+    spotLightSlots_[handle] = false;
+    lightingData_.spotLights[handle] = {};
+    lightingGpuAddress_ = 0;
+}
+
+const SpotLight* LightingManager::GetSpotLight(LightHandle handle) const {
+    if (!IsHandleInRange(handle, kMaxSpotLights) ||
+        !spotLightSlots_[handle]) {
+        return nullptr;
+    }
+    return &lightingData_.spotLights[handle];
+}
+
 uint32_t LightingManager::GetDirectionalLightCount() const {
     return static_cast<uint32_t>(std::count(
         directionalLightSlots_.begin(),
@@ -184,6 +247,11 @@ uint32_t LightingManager::GetPointLightCount() const {
         pointLightSlots_.begin(),
         pointLightSlots_.end(),
         true));
+}
+
+uint32_t LightingManager::GetSpotLightCount() const {
+    return static_cast<uint32_t>(std::count(
+        spotLightSlots_.begin(), spotLightSlots_.end(), true));
 }
 
 bool LightingManager::GetFirstEnabledDirectionalLight(

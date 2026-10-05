@@ -17,21 +17,27 @@ cbuffer gTransformationMatrix : register(b1)
 VertexShaderOutput main(VertexShaderInput input)
 {
     VertexShaderOutput output;
+    const float4 skinnedPosition = SkinPosition(
+        input.position, input.boneIndices, input.boneWeights);
+    const float3 skinnedNormal = SkinDirection(
+        input.normal, input.boneIndices, input.boneWeights);
+    const float3 skinnedTangent = SkinDirection(
+        input.tangent.xyz, input.boneIndices, input.boneWeights);
     
     // 座標をWVP行列でスクリーン空間に変換
-    output.position = mul(input.position, gTransformationMatrixData.WVP);
+    output.position = mul(skinnedPosition, gTransformationMatrixData.WVP);
     output.texcoord = input.texcoord;
     output.worldPosition = mul(
-        input.position, gTransformationMatrixData.World).xyz;
+        skinnedPosition, gTransformationMatrixData.World).xyz;
     
     // 通常のWorld行列ではなく逆転置行列を使い、X/Y/Zで異なる拡大率にも対応する。
     output.normal = normalize(mul(
-        input.normal,
+        skinnedNormal,
         (float3x3) gTransformationMatrixData.WorldInverseTranspose));
 
     // Tangentは面に沿う方向なのでWorld行列で変換し、PS側でNormalと直交化する。
     float3 worldTangent = mul(
-        input.tangent.xyz,
+        skinnedTangent,
         (float3x3) gTransformationMatrixData.World);
     float tangentLengthSquared = dot(worldTangent, worldTangent);
     worldTangent = tangentLengthSquared > 0.000001f

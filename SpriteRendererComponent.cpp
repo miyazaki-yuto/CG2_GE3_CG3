@@ -24,5 +24,6 @@ void SpriteRendererComponent::Render() {
         owner->GetTransform().GetWorldMatrix(),
         color_,
         textureHandle_,
-        uvTransform_);
+        uvTransform_,
+        GetBlendMode());
 }

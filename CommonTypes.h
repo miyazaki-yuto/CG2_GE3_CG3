@@ -21,6 +21,10 @@ struct TextureVertexData {
     Vector3 normal;
     // xyzは接線、wはBitangentを復元するための向き（+1／-1）。
     Vector4 tangent;
+    // 1頂点に最大4本のボーンを影響させる。ウェイトが0の頂点は
+    // 非スキニング頂点として、従来どおりの座標を使用する。
+    uint32_t boneIndices[4]{};
+    Vector4 boneWeights{};
 };
 
 struct TransformData {
@@ -74,9 +78,11 @@ struct MaterialConstants {
     int32_t normalMapEnabled;      // 1ならt2のNormal Mapを使用
     float metallic;                // PBRの金属度。0=非金属、1=金属
     float roughness;               // PBRの粗さ。0=鏡面、1=粗い表面
+    int32_t metallicRoughnessMapEnabled; // 1ならt5のG=Roughness、B=Metallicを使用
+    float pbrPadding[3];
 };
 
-static_assert(sizeof(MaterialConstants) == 128);
+static_assert(sizeof(MaterialConstants) == 144);
 
 struct DirectionalLight
 {
@@ -97,6 +103,20 @@ struct PointLight
     float decay;       // 距離による減衰カーブ。大きいほど急に暗くなる
     int32_t enabled;
     float padding;
+};
+
+// 位置・向き・内外2つの角度を持つ円錐状の光源。
+struct SpotLight
+{
+    Color4 color;
+    Vector3 position;
+    float intensity;
+    Vector3 direction;
+    float radius;
+    float decay;
+    float cosOuterAngle;
+    float cosInnerAngle;
+    int32_t enabled;
 };
 
 // モデル表面で反射した光を、弱い色付きPoint Lightとして近似する。
@@ -143,13 +163,28 @@ enum class AntiAliasingMode : int32_t
 // CPU側とObject3d.hlsli側で、この個数を必ず一致させること。
 constexpr uint32_t kMaxDirectionalLights = 4;
 constexpr uint32_t kMaxPointLights = 16;
+constexpr uint32_t kMaxSpotLights = 8;
 constexpr uint32_t kMaxBounceLights = 3;
+constexpr uint32_t kMaxSkinningBones = 128;
+
+// b4で頂点シェーダーへ渡すボーンパレット。
+// HLSLのSkinning.hlsliと配置を必ず一致させる。
+struct SkinningConstants
+{
+    Matrix4x4 boneMatrices[kMaxSkinningBones];
+    int32_t enabled;
+    uint32_t boneCount;
+    float padding[2];
+};
+
+static_assert(sizeof(SkinningConstants) == 8208);
 
 // b2へまとめて渡す、シーン共通のライトデータ。
 struct LightingData
 {
     DirectionalLight directionalLights[kMaxDirectionalLights];
     PointLight pointLights[kMaxPointLights];
+    SpotLight spotLights[kMaxSpotLights];
     // スペキュラ計算では「表面からカメラへ向かう方向」が必要になる。
     Vector3 cameraPosition;
     float specularStrength; // ハイライトの明るさ。0でスペキュラを無効化する。
@@ -186,6 +221,7 @@ struct LightingData
 
 static_assert(sizeof(DirectionalLight) == 48);
 static_assert(sizeof(PointLight) == 48);
+static_assert(sizeof(SpotLight) == 64);
 static_assert(sizeof(BounceLight) == 48);
-// HLSLのLightBufferも同じ1264バイトの配置にする。
-static_assert(sizeof(LightingData) == 1520);
+// HLSLのLightBufferも同じ配置にする。
+static_assert(sizeof(LightingData) == 2032);

@@ -7,7 +7,11 @@
 #include <iosfwd>
 #include <string>
 
+#include "BlendMode.h"
+
 namespace DX12Utility {
+
+D3D12_BLEND_DESC CreateBlendDesc(BlendMode blendMode);
 
 // ログファイルとVisual Studioの出力ウィンドウへ同じメッセージを出力する。
 void Log(std::ostream& os, const std::string& message);

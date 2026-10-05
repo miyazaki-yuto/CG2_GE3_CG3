@@ -91,7 +91,8 @@ bool TryGetAssetTypeFromExtension(
     const std::filesystem::path& path,
     AssetType& type) {
     const std::string extension = ToLowerAscii(MakeUtf8FromPath(path.extension()));
-    if (extension == ".obj") {
+    if (extension == ".obj" || extension == ".gltf" ||
+        extension == ".glb") {
         type = AssetType::Model;
         return true;
     }

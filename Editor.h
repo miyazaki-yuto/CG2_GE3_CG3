@@ -1,6 +1,9 @@
 #pragma once
 
 #include "CommonTypes.h"
+#include "EditorContext.h"
+#include "EditorHistory.h"
+#include "EditorUtilityPanels.h"
 #include "SceneSerializer.h"
 #include "ShaderGraphEditor.h"
 
@@ -10,13 +13,21 @@
 #include <vector>
 
 class AssetManager;
+class CameraComponent;
 class Component;
 class DebugCamera;
 class GameObject;
 class Graphics;
 class InputManager;
+class LightComponent;
+class ModelRendererComponent;
+class ParticleEmitterComponent;
 class PrefabManager;
+class PrefabInstanceComponent;
+class PrimitiveRendererComponent;
+class RendererComponent;
 class Scene;
+class SpriteRendererComponent;
 
 // Unity風のHierarchyとInspectorを表示する、デバッグ用Editor。
 // ReleaseではDrawが何もしないため、ゲーム本体へEditor依存を持ち込まない。
@@ -42,10 +53,8 @@ public:
         int defaultTextureHandle,
         std::string defaultTextureGuid,
         std::string defaultModelGuid);
-    void Draw(
-        Scene& scene,
-        bool isPlaying,
-        const std::string& playModeMessage);
+    void Draw(EditorContext& context);
+    void RenderSelectionOutline(Scene& scene);
 
     // Toolbarで押されたPlay／Stopを、Sceneを使い終えたフレーム末尾で受け取る。
     PlayModeRequest ConsumePlayModeRequest();
@@ -97,19 +106,15 @@ private:
         uint64_t targetId = 0;
     };
 
-    // 1回のEditor操作の前後を保持するUndo/Redo履歴。
-    // JSONなのでGameObject ID・親子関係・Component設定もまとめて復元できる。
-    struct HistoryEntry {
-        std::string label;
-        std::string beforeSnapshot;
-        std::string afterSnapshot;
-        uint64_t selectionBefore = 0;
-        uint64_t selectionAfter = 0;
-    };
-
     void DrawHierarchy(Scene& scene);
     void DrawDockSpace();
     void DrawViewportWindows(Scene& scene, bool isPlaying);
+    void PickGameObjectAtViewport(
+        Scene& scene,
+        float viewportX,
+        float viewportY,
+        float viewportWidth,
+        float viewportHeight);
     void DrawSceneGizmos(
         Scene& scene,
         float viewportLeft,
@@ -186,13 +191,21 @@ private:
     bool Undo(Scene& scene);
     bool Redo(Scene& scene);
     void ClearHistory();
-    bool CanUndo() const { return historyCursor_ > 0; }
-    bool CanRedo() const { return historyCursor_ < history_.size(); }
+    bool CanUndo() const { return history_.CanUndo(); }
+    bool CanRedo() const { return history_.CanRedo(); }
     void HandleTransformHistoryItem(Scene& scene, GameObject& gameObject);
     void DrawInspector(Scene& scene);
     bool DrawPrefabInspector(Scene& scene, GameObject& gameObject);
     void DrawTransformInspector(Scene& scene, GameObject& gameObject);
     void DrawComponentInspector(Component& component);
+    void DrawRendererInspector(RendererComponent& renderer);
+    void DrawModelRendererInspector(ModelRendererComponent& renderer);
+    void DrawSpriteRendererInspector(SpriteRendererComponent& renderer);
+    void DrawPrimitiveRendererInspector(PrimitiveRendererComponent& renderer);
+    void DrawParticleEmitterInspector(ParticleEmitterComponent& emitter);
+    void DrawPrefabInstanceInspector(PrefabInstanceComponent& prefab);
+    void DrawLightInspector(LightComponent& light);
+    void DrawCameraInspector(CameraComponent& camera);
     void DrawAddComponent(GameObject& gameObject, Scene& scene);
 
     AssetManager* assetManager_ = nullptr;
@@ -207,8 +220,7 @@ private:
     bool openHierarchyRenamePopup_ = false;
     HierarchyAction hierarchyAction_{};
     std::array<char, 128> hierarchyRenameBuffer_{};
-    std::vector<HistoryEntry> history_;
-    size_t historyCursor_ = 0;
+    EditorHistory history_;
     std::string transformBeforeSnapshot_;
     uint64_t transformEditingGameObjectId_ = 0;
     uint64_t transformSelectionBefore_ = 0;
@@ -246,4 +258,7 @@ private:
     uint32_t viewportWidth_ = 1;
     uint32_t viewportHeight_ = 1;
     PlayModeRequest playModeRequest_ = PlayModeRequest::None;
+    PerformancePanel performancePanel_;
+    LightingPanel lightingPanel_;
+    SoundPanel soundPanel_;
 };

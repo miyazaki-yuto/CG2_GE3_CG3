@@ -6,6 +6,7 @@
 #include "LightingManager.h"
 #include "Material.h"
 #include "Model.h"
+#include "ParticleDrawer.h"
 #include "PrimitiveDrawer.h"
 #include "ShaderManager.h"
 #include "Sprite.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <filesystem>
 #include <stdexcept>
 
 #pragma comment(lib, "d3d12.lib")
@@ -33,6 +35,18 @@ constexpr float kDirectionalCascadeSplits[4] = {
 };
 constexpr float kPointShadowNearClip = 0.1f;
 constexpr float kPointShadowBias = 0.003f;
+
+std::array<ID3D12PipelineState*, kBlendModeCount>
+GetPipelineStatePointers(
+    const std::array<
+        Microsoft::WRL::ComPtr<ID3D12PipelineState>,
+        kBlendModeCount>& pipelineStates) {
+    std::array<ID3D12PipelineState*, kBlendModeCount> result{};
+    for (size_t index = 0; index < result.size(); ++index) {
+        result[index] = pipelineStates[index].Get();
+    }
+    return result;
+}
 
 void TransitionResource(
     ID3D12GraphicsCommandList* commandList,
@@ -202,8 +216,9 @@ void Graphics::CreateRootSignature(std::ofstream& logStream) {
     // [0]=b0 Material, [1]=b1 TransformationMatrix,
     // [2]=t0 Base Color, [3]=b2 LightingData, [4]=t1 Shadow Map,
     // [5]=t2 Normal Map, [6]=t3 Environment Map,
-    // [7]=t4 Point Light Shadow Cube, [8]=b3 Custom Material Parameters
-    D3D12_ROOT_PARAMETER rootParameters[9]{};
+    // [7]=t4 Point Light Shadow Cube, [8]=b3 Custom Material Parameters,
+    // [9]=t5 glTF Metallic-Roughness Map, [10]=b4 Skinning Palette
+    D3D12_ROOT_PARAMETER rootParameters[11]{};
 
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -281,6 +296,23 @@ void Graphics::CreateRootSignature(std::ofstream& logStream) {
     rootParameters[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[8].Descriptor.ShaderRegister = 3;
+
+    D3D12_DESCRIPTOR_RANGE metallicRoughnessRange{};
+    metallicRoughnessRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    metallicRoughnessRange.NumDescriptors = 1;
+    metallicRoughnessRange.BaseShaderRegister = 5;
+    metallicRoughnessRange.OffsetInDescriptorsFromTableStart =
+        D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+    rootParameters[9].ParameterType =
+        D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rootParameters[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    rootParameters[9].DescriptorTable.pDescriptorRanges =
+        &metallicRoughnessRange;
+    rootParameters[9].DescriptorTable.NumDescriptorRanges = 1;
+
+    rootParameters[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    rootParameters[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    rootParameters[10].Descriptor.ShaderRegister = 4;
 
     // HLSLのs0に対応する、テクスチャ用の固定サンプラー。
     D3D12_STATIC_SAMPLER_DESC staticSamplers[2]{};
@@ -408,16 +440,19 @@ void Graphics::CreateRootSignature(std::ofstream& logStream) {
         IID_PPV_ARGS(&toneMappingRootSignature_));
     assert(SUCCEEDED(hr));
 
-    D3D12_ROOT_PARAMETER shadowRootParameter{};
-    shadowRootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    shadowRootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-    shadowRootParameter.Descriptor.ShaderRegister = 0;
+    D3D12_ROOT_PARAMETER shadowRootParameters[2]{};
+    shadowRootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    shadowRootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    shadowRootParameters[0].Descriptor.ShaderRegister = 0;
+    shadowRootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    shadowRootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    shadowRootParameters[1].Descriptor.ShaderRegister = 4;
 
     D3D12_ROOT_SIGNATURE_DESC shadowRootSignatureDesc{};
     shadowRootSignatureDesc.Flags =
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-    shadowRootSignatureDesc.pParameters = &shadowRootParameter;
-    shadowRootSignatureDesc.NumParameters = 1;
+    shadowRootSignatureDesc.pParameters = shadowRootParameters;
+    shadowRootSignatureDesc.NumParameters = _countof(shadowRootParameters);
 
     signatureBlob.Reset();
     errorBlob.Reset();
@@ -456,9 +491,21 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
 
     Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob =
         shaderManager_->LoadShader(
-        L"Object3d.PS.hlsl",
-        L"ps_6_0",
-        logStream);
+            L"Object3d.PS.hlsl",
+            L"ps_6_0",
+            logStream);
+
+    Microsoft::WRL::ComPtr<IDxcBlob> outlineVertexShaderBlob =
+        shaderManager_->LoadShader(
+            L"Outline.VS.hlsl",
+            L"vs_6_0",
+            logStream);
+
+    Microsoft::WRL::ComPtr<IDxcBlob> outlinePixelShaderBlob =
+        shaderManager_->LoadShader(
+            L"Outline.PS.hlsl",
+            L"ps_6_0",
+            logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> shadowVertexShaderBlob =
         shaderManager_->LoadShader(
@@ -480,6 +527,8 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
 
     if (vertexShaderBlob == nullptr ||
         pixelShaderBlob == nullptr ||
+        outlineVertexShaderBlob == nullptr ||
+        outlinePixelShaderBlob == nullptr ||
         shadowVertexShaderBlob == nullptr ||
         toneMappingVertexShaderBlob == nullptr ||
         toneMappingPixelShaderBlob == nullptr) {
@@ -495,24 +544,13 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TANGENT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
     D3D12_INPUT_LAYOUT_DESC inputLayout{};
     inputLayout.pInputElementDescs = inputElements;
     inputLayout.NumElements = _countof(inputElements);
-
-    // MTLのd（不透明度）を反映できるよう、3Dにも通常のアルファブレンドを許可する。
-    // alpha=1の不透明モデルは従来と同じ結果になる。
-    D3D12_BLEND_DESC objectBlendDesc{};
-    D3D12_RENDER_TARGET_BLEND_DESC& objectBlend = objectBlendDesc.RenderTarget[0];
-    objectBlend.BlendEnable = TRUE;
-    objectBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    objectBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-    objectBlend.BlendOp = D3D12_BLEND_OP_ADD;
-    objectBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
-    objectBlend.DestBlendAlpha = D3D12_BLEND_ZERO;
-    objectBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    objectBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
     D3D12_RASTERIZER_DESC objectRasterizerDesc{};
     objectRasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
@@ -535,7 +573,8 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
         pixelShaderBlob->GetBufferPointer(),
         pixelShaderBlob->GetBufferSize()
     };
-    pipelineDesc.BlendState = objectBlendDesc;
+    pipelineDesc.BlendState =
+        DX12Utility::CreateBlendDesc(BlendMode::Normal);
     pipelineDesc.RasterizerState = objectRasterizerDesc;
     pipelineDesc.DepthStencilState = objectDepthStencilDesc;
     pipelineDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -545,9 +584,39 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
     pipelineDesc.SampleDesc.Count = 1;
     pipelineDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 
+    for (size_t index = 0; index < kBlendModeCount; ++index) {
+        pipelineDesc.BlendState = DX12Utility::CreateBlendDesc(
+            static_cast<BlendMode>(index));
+        hr = dxCommon_->GetDevice()->CreateGraphicsPipelineState(
+            &pipelineDesc,
+            IID_PPV_ARGS(&object3dPipelineStates_[index]));
+        assert(SUCCEEDED(hr));
+    }
+
+    // カスタムMaterialの雛形は従来どおり通常αブレンドにする。
+    pipelineDesc.BlendState =
+        DX12Utility::CreateBlendDesc(BlendMode::Normal);
+
+    // 選択モデルを法線方向へ膨らませ、表面を除いた外周だけをHDRオレンジで描く。
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC outlinePipelineDesc = pipelineDesc;
+    outlinePipelineDesc.VS = {
+        outlineVertexShaderBlob->GetBufferPointer(),
+        outlineVertexShaderBlob->GetBufferSize()
+    };
+    outlinePipelineDesc.PS = {
+        outlinePixelShaderBlob->GetBufferPointer(),
+        outlinePixelShaderBlob->GetBufferSize()
+    };
+    outlinePipelineDesc.BlendState =
+        DX12Utility::CreateBlendDesc(BlendMode::None);
+    outlinePipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
+    outlinePipelineDesc.DepthStencilState.DepthWriteMask =
+        D3D12_DEPTH_WRITE_MASK_ZERO;
+    outlinePipelineDesc.DepthStencilState.DepthFunc =
+        D3D12_COMPARISON_FUNC_LESS_EQUAL;
     hr = dxCommon_->GetDevice()->CreateGraphicsPipelineState(
-        &pipelineDesc,
-        IID_PPV_ARGS(&object3dPipelineState_));
+        &outlinePipelineDesc,
+        IID_PPV_ARGS(&outlinePipelineState_));
     assert(SUCCEEDED(hr));
 
     shaderManager_->SetMaterialPipelineTemplate(
@@ -571,22 +640,14 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
     skySpherePipelineDesc.RasterizerState = skySphereRasterizerDesc;
     skySpherePipelineDesc.DepthStencilState = skySphereDepthStencilDesc;
 
-    hr = dxCommon_->GetDevice()->CreateGraphicsPipelineState(
-        &skySpherePipelineDesc,
-        IID_PPV_ARGS(&skySpherePipelineState_));
-    assert(SUCCEEDED(hr));
-
-    // Spriteは半透明を扱うため、SrcAlphaで通常のアルファブレンドを行う。
-    D3D12_BLEND_DESC spriteBlendDesc{};
-    D3D12_RENDER_TARGET_BLEND_DESC& spriteBlend = spriteBlendDesc.RenderTarget[0];
-    spriteBlend.BlendEnable = TRUE;
-    spriteBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    spriteBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-    spriteBlend.BlendOp = D3D12_BLEND_OP_ADD;
-    spriteBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
-    spriteBlend.DestBlendAlpha = D3D12_BLEND_ZERO;
-    spriteBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    spriteBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    for (size_t index = 0; index < kBlendModeCount; ++index) {
+        skySpherePipelineDesc.BlendState = DX12Utility::CreateBlendDesc(
+            static_cast<BlendMode>(index));
+        hr = dxCommon_->GetDevice()->CreateGraphicsPipelineState(
+            &skySpherePipelineDesc,
+            IID_PPV_ARGS(&skySpherePipelineStates_[index]));
+        assert(SUCCEEDED(hr));
+    }
 
     // 2D矩形は両面描画し、3Dの深度バッファには影響させない。
     D3D12_RASTERIZER_DESC spriteRasterizerDesc = objectRasterizerDesc;
@@ -597,14 +658,17 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
     spriteDepthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC spritePipelineDesc = pipelineDesc;
-    spritePipelineDesc.BlendState = spriteBlendDesc;
     spritePipelineDesc.RasterizerState = spriteRasterizerDesc;
     spritePipelineDesc.DepthStencilState = spriteDepthStencilDesc;
 
-    hr = dxCommon_->GetDevice()->CreateGraphicsPipelineState(
-        &spritePipelineDesc,
-        IID_PPV_ARGS(&spritePipelineState_));
-    assert(SUCCEEDED(hr));
+    for (size_t index = 0; index < kBlendModeCount; ++index) {
+        spritePipelineDesc.BlendState = DX12Utility::CreateBlendDesc(
+            static_cast<BlendMode>(index));
+        hr = dxCommon_->GetDevice()->CreateGraphicsPipelineState(
+            &spritePipelineDesc,
+            IID_PPV_ARGS(&spritePipelineStates_[index]));
+        assert(SUCCEEDED(hr));
+    }
 
     // HDR Scene Textureを表示用のsRGB Render Targetへ変換するFullscreen Pass。
     D3D12_RASTERIZER_DESC toneRasterizerDesc{};
@@ -687,7 +751,7 @@ void Graphics::CreateRenderers(uint32_t width, uint32_t height) {
         lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
-        object3dPipelineState_.Get(),
+        GetPipelineStatePointers(object3dPipelineStates_),
         shadowRootSignature_.Get(),
         shadowPipelineState_.Get());
 
@@ -697,9 +761,17 @@ void Graphics::CreateRenderers(uint32_t width, uint32_t height) {
         lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
-        spritePipelineState_.Get(),
+        GetPipelineStatePointers(spritePipelineStates_),
         width,
         height);
+
+    particleDrawer_ = std::make_unique<ParticleDrawer>();
+    particleDrawer_->Initialize(
+        dxCommon_,
+        debugCamera_.get(),
+        textureManager_.get(),
+        shaderManager_.get(),
+        *logStream_);
 }
 
 void Graphics::BeginDraw() {
@@ -1421,6 +1493,30 @@ void Graphics::InitializeImGui(HWND hWnd) {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigDockingWithShift = false;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
+
+    // ImGui標準フォントには日本語グリフが含まれないため、
+    // Project同梱フォントを優先し、Windowsの日本語フォントへFallbackする。
+    constexpr const char* kJapaneseFontCandidates[] = {
+        "Resources/Fonts/NotoSansJP-Regular.ttf",
+        "C:/Windows/Fonts/NotoSansJP-VF.ttf",
+        "C:/Windows/Fonts/meiryo.ttc",
+        "C:/Windows/Fonts/YuGothM.ttc"
+    };
+    for (const char* fontPath : kJapaneseFontCandidates) {
+        std::error_code fileError;
+        if (!std::filesystem::exists(fontPath, fileError)) {
+            continue;
+        }
+        ImFont* japaneseFont = io.Fonts->AddFontFromFileTTF(
+            fontPath,
+            18.0f,
+            nullptr,
+            io.Fonts->GetGlyphRangesJapanese());
+        if (japaneseFont != nullptr) {
+            io.FontDefault = japaneseFont;
+            break;
+        }
+    }
     ImGui::StyleColorsDark();
 
     const bool win32Initialized = ImGui_ImplWin32_Init(hWnd);
@@ -1460,11 +1556,12 @@ int Graphics::LoadTexture(const std::string& filePath, bool useSrgb) {
         filePath, dxCommon_->GetCommandList(), useSrgb);
 }
 
-std::unique_ptr<Model> Graphics::CreateModel(const std::string& objFilePath) {
+std::unique_ptr<Model> Graphics::CreateModel(
+    const std::string& modelFilePath) {
     assert(dxCommon_ != nullptr);
     assert(textureManager_ != nullptr);
     assert(rootSignature_ != nullptr);
-    assert(object3dPipelineState_ != nullptr);
+    assert(object3dPipelineStates_[GetBlendModeIndex(BlendMode::Normal)] != nullptr);
     assert(debugCamera_ != nullptr);
 
     auto model = std::make_unique<Model>();
@@ -1474,10 +1571,11 @@ std::unique_ptr<Model> Graphics::CreateModel(const std::string& objFilePath) {
         lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
-        object3dPipelineState_.Get(),
+        GetPipelineStatePointers(object3dPipelineStates_),
+        outlinePipelineState_.Get(),
         shadowRootSignature_.Get(),
         shadowPipelineState_.Get(),
-        objFilePath)) {
+        modelFilePath)) {
         const std::string message = model->GetLastError() + "\n";
         OutputDebugStringA(message.c_str());
         return nullptr;
@@ -1491,14 +1589,14 @@ void Graphics::FlushGpu() {
 }
 
 std::unique_ptr<Model> Graphics::CreateSkySphereModel(
-    const std::string& objFilePath) {
+    const std::string& modelFilePath) {
     assert(dxCommon_ != nullptr);
     assert(textureManager_ != nullptr);
     assert(rootSignature_ != nullptr);
-    assert(skySpherePipelineState_ != nullptr);
+    assert(skySpherePipelineStates_[GetBlendModeIndex(BlendMode::Normal)] != nullptr);
     assert(debugCamera_ != nullptr);
 
-    // OBJの読み込み処理は通常Modelと共通で、描画時のPSOだけを天球専用にする。
+    // 読み込み処理は通常Modelと共通で、描画時のPSOだけを天球専用にする。
     auto model = std::make_unique<Model>();
     if (!model->Initialize(
         dxCommon_,
@@ -1506,10 +1604,11 @@ std::unique_ptr<Model> Graphics::CreateSkySphereModel(
         lightingManager_.get(),
         textureManager_.get(),
         rootSignature_.Get(),
-        skySpherePipelineState_.Get(),
+        GetPipelineStatePointers(skySpherePipelineStates_),
+        outlinePipelineState_.Get(),
         shadowRootSignature_.Get(),
         shadowPipelineState_.Get(),
-        objFilePath)) {
+        modelFilePath)) {
         const std::string message = model->GetLastError() + "\n";
         OutputDebugStringA(message.c_str());
         return nullptr;

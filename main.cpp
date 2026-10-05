@@ -22,9 +22,6 @@
 #include "Scene.h"
 #include "SceneSerializer.h"
 #include "CommonTypes.h"
-#ifdef USE_IMGUI
-#include "externals/imgui/imgui.h"
-#endif
 #include <cassert>
 #include <cmath>
 #include <utility>
@@ -307,6 +304,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			RendererComponent::kSkyRenderOrder);
 
 #ifdef _DEBUG
+		DebugSelfTests::RunSkeletalAnimation();
 		DebugSelfTests::RunPrefab(
 			mainScene, *prefabManager, *assetManager);
 
@@ -537,236 +535,15 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			prefabManager->Update(activeScene);
 
 #ifdef USE_IMGUI
-			editor.Draw(activeScene, isPlaying, playModeMessage);
-
-			// FPSはImGuiが直近のフレーム時間から平滑化してくれるため、
-			// 一瞬の処理落ちで数字が激しく跳ねず、実際の操作感と比べやすい。
-			ImGui::Begin("Performance");
-			const float currentFps = ImGui::GetIO().Framerate;
-			const float frameTimeMilliseconds =
-				currentFps > 0.0f ? 1000.0f / currentFps : 0.0f;
-			const ImVec4 fpsColor = currentFps >= 55.0f
-				? ImVec4(0.35f, 0.9f, 0.45f, 1.0f)
-				: (currentFps >= 30.0f
-					? ImVec4(1.0f, 0.75f, 0.25f, 1.0f)
-					: ImVec4(1.0f, 0.35f, 0.35f, 1.0f));
-			ImGui::TextColored(fpsColor, "FPS: %.1f", currentFps);
-			ImGui::Text("Frame Time: %.2f ms", frameTimeMilliseconds);
-			ImGui::End();
-
-			// BlenderのLightプロパティに相当する、シーン共通ライトの編集画面。
-			ImGui::Begin("Lighting");
-			if (lightingManager != nullptr) {
-				ImGui::Text(
-					"Registered: Directional %u/%u, Point %u/%u",
-					lightingManager->GetDirectionalLightCount(),
-					kMaxDirectionalLights,
-					lightingManager->GetPointLightCount(),
-					kMaxPointLights);
-				ImGui::TextWrapped(
-					"Realtime Shadow: first enabled Directional Light "
-					"(4 cascades) and first enabled Point Light "
-					"(6-face cube).");
-
-				ImGui::SeparatorText("Lighting Model");
-				const char* lightingModes[] = {
-					"Lambert",
-					"Half-Lambert",
-					"Current (Half-Lambert + Specular)",
-					"PBR (Metallic / Roughness)"
-				};
-				int lightingMode = static_cast<int>(
-					lightingManager->GetLightingMode());
-				if (ImGui::Combo(
-						"Mode", &lightingMode, lightingModes,
-						static_cast<int>(std::size(lightingModes)))) {
-					lightingManager->SetLightingMode(
-						static_cast<LightingMode>(lightingMode));
-				}
-				switch (lightingManager->GetLightingMode()) {
-				case LightingMode::Lambert:
-					ImGui::TextWrapped(
-						"Standard diffuse lighting. Back faces become dark.");
-					break;
-				case LightingMode::HalfLambert:
-					ImGui::TextWrapped(
-						"Soft diffuse lighting without specular highlights.");
-					break;
-				case LightingMode::Current:
-					ImGui::TextWrapped(
-						"Existing lighting: Half-Lambert diffuse, "
-						"Blinn-Phong specular, and Bounce Light.");
-					break;
-				case LightingMode::PBR:
-				default:
-					ImGui::TextWrapped(
-						"Cook-Torrance PBR: GGX, Smith geometry, "
-						"Schlick Fresnel, Metallic and Roughness.");
-					break;
-				}
-
-				// 個々のライトはHierarchyで選択し、Inspectorから編集する。
-				// Specularは従来方式のCurrentを選んだ場合だけ使用する。
-				ImGui::SeparatorText("Specular");
-				ImGui::BeginDisabled(
-					lightingManager->GetLightingMode() != LightingMode::Current);
-				float specularStrength = lightingManager->GetSpecularStrength();
-				if (ImGui::DragFloat(
-					"Specular Strength", &specularStrength, 0.01f, 0.0f, 10.0f)) {
-					lightingManager->SetSpecularStrength(specularStrength);
-				}
-
-				float specularShininess = lightingManager->GetSpecularShininess();
-				if (ImGui::DragFloat(
-					"Specular Shininess", &specularShininess, 1.0f, 1.0f, 256.0f)) {
-					lightingManager->SetSpecularShininess(specularShininess);
-				}
-				ImGui::TextUnformatted(
-					"Strength: brightness / Shininess: highlight sharpness");
-				ImGui::EndDisabled();
-
-				ImGui::SeparatorText("Environment / IBL");
-				bool environmentEnabled =
-					lightingManager->IsEnvironmentEnabled();
-				if (ImGui::Checkbox(
-						"Use Environment Light", &environmentEnabled)) {
-					lightingManager->SetEnvironmentEnabled(environmentEnabled);
-				}
-				ImGui::BeginDisabled(!environmentEnabled);
-				float environmentIntensity =
-					lightingManager->GetEnvironmentIntensity();
-				if (ImGui::DragFloat(
-						"IBL Intensity",
-						&environmentIntensity,
-						0.01f,
-						0.0f,
-						4.0f)) {
-					lightingManager->SetEnvironmentIntensity(
-						environmentIntensity);
-				}
-
-				constexpr float kRadiansToDegrees =
-					57.29577951308232f;
-				constexpr float kDegreesToRadians =
-					0.017453292519943295f;
-				float environmentRotationDegrees =
-					lightingManager->GetEnvironmentRotation() *
-					kRadiansToDegrees;
-				if (ImGui::DragFloat(
-						"Environment Rotation",
-						&environmentRotationDegrees,
-						0.5f,
-						-360.0f,
-						360.0f,
-						"%.1f deg")) {
-					lightingManager->SetEnvironmentRotation(
-						environmentRotationDegrees * kDegreesToRadians);
-				}
-				ImGui::EndDisabled();
-				ImGui::TextWrapped(
-					"The Sky Sphere texture supplies soft ambient light "
-					"and reflections.");
-
-				ImGui::SeparatorText("HDR / Tone Mapping");
-				const char* toneMappingModes[] = {
-					"None (Clamp)",
-					"Reinhard",
-					"ACES Filmic"
-				};
-				int toneMappingMode = static_cast<int>(
-					graphics->GetToneMappingMode());
-				if (ImGui::Combo(
-						"Tone Mapping",
-						&toneMappingMode,
-						toneMappingModes,
-						static_cast<int>(std::size(toneMappingModes)))) {
-					graphics->SetToneMappingMode(
-						static_cast<ToneMappingMode>(toneMappingMode));
-				}
-				float exposure = graphics->GetExposure();
-				if (ImGui::SliderFloat(
-						"Exposure",
-						&exposure,
-						-5.0f,
-						5.0f,
-						"%+.2f EV")) {
-					graphics->SetExposure(exposure);
-				}
-				ImGui::TextWrapped(
-					"The Scene is rendered to RGBA16F before this pass.");
-				ImGui::SeparatorText("Post Processing");
-				const char* aaModes[] = {
-					"None", "FXAA", "TAA", "MAA"
-				};
-				int aaMode = static_cast<int>(
-					graphics->GetAntiAliasingMode());
-				if (ImGui::Combo(
-						"Anti-Aliasing", &aaMode, aaModes,
-						static_cast<int>(std::size(aaModes)))) {
-					graphics->SetAntiAliasingMode(
-						static_cast<AntiAliasingMode>(aaMode));
-				}
-				bool ssaoEnabled = graphics->IsSsaoEnabled();
-				if (ImGui::Checkbox("SSAO", &ssaoEnabled)) {
-					graphics->SetSsaoEnabled(ssaoEnabled);
-				}
-				float ssaoStrength = graphics->GetSsaoStrength();
-				if (ImGui::SliderFloat(
-						"SSAO Strength", &ssaoStrength, 0.0f, 2.0f)) {
-					graphics->SetSsaoStrength(ssaoStrength);
-				}
-				bool bloomEnabled = graphics->IsBloomEnabled();
-				if (ImGui::Checkbox("Bloom", &bloomEnabled)) {
-					graphics->SetBloomEnabled(bloomEnabled);
-				}
-				float bloomIntensity = graphics->GetBloomIntensity();
-				if (ImGui::SliderFloat(
-						"Bloom Intensity", &bloomIntensity, 0.0f, 2.0f)) {
-					graphics->SetBloomIntensity(bloomIntensity);
-				}
-				float bloomThreshold = graphics->GetBloomThreshold();
-				if (ImGui::SliderFloat(
-						"Bloom Threshold", &bloomThreshold, 0.0f, 5.0f)) {
-					graphics->SetBloomThreshold(bloomThreshold);
-				}
-			}
-			ImGui::End();
-
-			// XAudio2で再生中のBGMをImGuiから操作する。
-			ImGui::Begin("Sound Control");
-			if (audioManager != nullptr && bgmHandle >= 0) {
-				// BGMもゲーム実行状態の一部なので、Edit中は操作を無効にする。
-				ImGui::BeginDisabled(!isPlaying);
-				if (ImGui::SliderFloat("BGM Volume", &bgmVolume, 0.0f, 1.0f)) {
-					audioManager->SetVolume(bgmHandle, bgmVolume);
-				}
-
-				if (ImGui::Button("Play from Start")) {
-					audioManager->Play(bgmHandle, true);
-				}
-				ImGui::SameLine();
-				if (ImGui::Button("Pause")) {
-					audioManager->Pause(bgmHandle);
-				}
-				ImGui::SameLine();
-				if (ImGui::Button("Resume")) {
-					audioManager->Resume(bgmHandle);
-				}
-				ImGui::SameLine();
-				if (ImGui::Button("Stop")) {
-					audioManager->Stop(bgmHandle);
-				}
-				ImGui::EndDisabled();
-
-				const char* soundState = audioManager->IsPaused(bgmHandle)
-					? "Paused"
-					: (audioManager->IsPlaying(bgmHandle) ? "Playing" : "Stopped");
-				ImGui::Text("State: %s", soundState);
-			} else {
-				ImGui::TextUnformatted("BGM could not be loaded.");
-			}
-			ImGui::End();
-
+			EditorContext editorContext{
+				activeScene,
+				isPlaying,
+				playModeMessage,
+				audioManager,
+				bgmHandle,
+				&bgmVolume
+			};
+			editor.Draw(editorContext);
 #endif
 
 			// 反射元モデルの現在座標と色から、このフレームのBounceLightを生成する。
@@ -838,6 +615,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 				graphics->BeginEditorViewportDraw(
 					editor.GetViewportWidth(), editor.GetViewportHeight());
 				activeScene.Render();
+				if (!isPlaying) {
+					editor.RenderSelectionOutline(activeScene);
+				}
 				graphics->EndEditorViewportDraw();
 			}
 #else

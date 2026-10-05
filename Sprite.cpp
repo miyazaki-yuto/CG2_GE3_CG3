@@ -12,14 +12,17 @@ void Sprite::Initialize(
     LightingManager* lightingManager,
     TextureManager* textureManager,
     ID3D12RootSignature* rootSignature,
-    ID3D12PipelineState* pipelineState,
+    const std::array<
+        ID3D12PipelineState*, kBlendModeCount>& pipelineStates,
     uint32_t windowWidth,
     uint32_t windowHeight) {
     assert(dxCommon != nullptr);
     assert(lightingManager != nullptr);
     assert(textureManager != nullptr);
     assert(rootSignature != nullptr);
-    assert(pipelineState != nullptr);
+    for (ID3D12PipelineState* pipelineState : pipelineStates) {
+        assert(pipelineState != nullptr);
+    }
     assert(windowWidth > 0);
     assert(windowHeight > 0);
 
@@ -27,7 +30,9 @@ void Sprite::Initialize(
     lightingManager_ = lightingManager;
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
-    pipelineState_ = pipelineState;
+    for (size_t index = 0; index < pipelineStates_.size(); ++index) {
+        pipelineStates_[index] = pipelineStates[index];
+    }
     Resize(windowWidth, windowHeight);
 
     // 0〜1の単位矩形をCPU側のひな形として保持する。
@@ -78,17 +83,22 @@ void Sprite::SetVertices(const TextureVertexData* vertices) {
 
 void Sprite::BeginFrame() {
     spriteDrawCount_ = 0;
+    const DynamicBufferAllocation skinningAllocation =
+        dxCommon_->AllocateDynamicBuffer(sizeof(SkinningConstants));
+    *static_cast<SkinningConstants*>(skinningAllocation.cpuAddress) = {};
+    disabledSkinningGpuAddress_ = skinningAllocation.gpuAddress;
 }
 
 void Sprite::Draw(
     const Matrix4x4& worldMatrix,
     const Vector4& color,
     int textureHandle,
-    const UVTransform& uvTransform) {
+    const UVTransform& uvTransform,
+    BlendMode blendMode) {
     assert(dxCommon_ != nullptr);
     assert(textureManager_ != nullptr);
     assert(rootSignature_ != nullptr);
-    assert(pipelineState_ != nullptr);
+    assert(pipelineStates_[GetBlendModeIndex(blendMode)] != nullptr);
     assert(textureHandle >= 0);
 
     if (spriteDrawCount_ >= kMaxSpriteCount) {
@@ -146,7 +156,8 @@ void Sprite::Draw(
     // ルートパラメータの番号は3D描画と共通だが、PSOはSprite専用設定を使う。
     commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
-    commandList->SetPipelineState(pipelineState_.Get());
+    commandList->SetPipelineState(
+        pipelineStates_[GetBlendModeIndex(blendMode)].Get());
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
     commandList->IASetIndexBuffer(&indexBufferView_);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -172,6 +183,10 @@ void Sprite::Draw(
         6, textureManager_->GetSrvHandleGPU(environmentTextureHandle));
     commandList->SetGraphicsRootDescriptorTable(
         7, textureManager_->GetPointShadowSrvHandleGPU());
+    commandList->SetGraphicsRootDescriptorTable(
+        9, textureManager_->GetSrvHandleGPU(textureHandle));
+    commandList->SetGraphicsRootConstantBufferView(
+        10, disabledSkinningGpuAddress_);
 
     // 4頂点を6個のインデックスで参照し、2枚の三角形として描画する。
     commandList->DrawIndexedInstanced(kIndexCount, 1, 0, 0, 0);
