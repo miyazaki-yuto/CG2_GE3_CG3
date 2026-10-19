@@ -1,0 +1,67 @@
+name: Windows Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.configuration }} x64
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Development
+          - Release
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v3
+        with:
+          vs-version: '[17.0,18.0)'
+          msbuild-architecture: x64
+
+      - name: Configure Assimp
+        shell: pwsh
+        run: ./SetupAssimp.ps1 -Generator 'Visual Studio 17 2022'
+
+      - name: Build CG2
+        shell: pwsh
+        run: >-
+          msbuild CG2.vcxproj
+          /m
+          /p:Configuration=${{ matrix.configuration }}
+          /p:Platform=x64
+          /p:BuildProjectReferences=true
+          /verbosity:minimal
+          /nologo
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $executable = 'Build/bin/x64/${{ matrix.configuration }}/CG2.exe'
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+            throw "Build output was not created: $executable"
+          }
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v7
+        with:
+          name: CG2-${{ matrix.configuration }}-x64
+          path: Build/bin/x64/${{ matrix.configuration }}/
+          if-no-files-found: error
+          retention-days: 14
