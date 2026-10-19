@@ -21,6 +21,8 @@ void RunPlayMode(
     LightingManager& lightingManager);
 
 void RunSkeletalAnimation();
+void RunPhysics();
+void RunVisualScript();
 
 } // namespace DebugSelfTests
 

@@ -1,0 +1,16 @@
+{
+  "formatVersion": 2,
+  "variables": [
+  ],
+  "nodes": [
+    { "id": 1, "type": "EventUpdate", "name": "毎フレーム", "x": 40, "y": 80, "floatValue": 0, "floatValueB": 0, "vectorValue": [0, 0, 0], "stringValue": "", "key": 87, "boolValue": true },
+    { "id": 2, "type": "KeyPressed", "name": "キーを押している", "x": 40, "y": 330, "floatValue": 0, "floatValueB": 0, "vectorValue": [0, 0, 0], "stringValue": "", "key": 87, "boolValue": true },
+    { "id": 3, "type": "Branch", "name": "もし～なら", "x": 340, "y": 110, "floatValue": 0, "floatValueB": 0, "vectorValue": [0, 0, 0], "stringValue": "", "key": 87, "boolValue": true },
+    { "id": 4, "type": "Translate", "name": "移動する", "x": 721, "y": 108, "floatValue": 0, "floatValueB": 0, "vectorValue": [1, 0, 3], "stringValue": "", "key": 87, "boolValue": true }
+  ],
+  "links": [
+    { "id": 1, "sourceNode": 1, "sourcePin": 0, "targetNode": 3, "targetPin": 0 },
+    { "id": 2, "sourceNode": 2, "sourcePin": 0, "targetNode": 3, "targetPin": 1 },
+    { "id": 3, "sourceNode": 3, "sourcePin": 0, "targetNode": 4, "targetPin": 0 }
+  ]
+}

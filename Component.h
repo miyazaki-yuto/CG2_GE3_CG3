@@ -1,6 +1,7 @@
 #pragma once
 
 class GameObject;
+class ColliderComponent;
 
 // GameObjectへ機能を追加するための基底クラス。
 // 将来のModelRenderer、Collider、VisualScriptなどはこのクラスを継承する。
@@ -34,6 +35,9 @@ public:
     virtual void OnEnable() {}
     virtual void OnDisable() {}
     virtual void Update(float /*deltaTime*/) {}
+    virtual void OnCollisionEnter(ColliderComponent& /*other*/) {}
+    virtual void OnCollisionStay(ColliderComponent& /*other*/) {}
+    virtual void OnCollisionExit(ColliderComponent& /*other*/) {}
     virtual void OnDestroy() {}
 
 private:

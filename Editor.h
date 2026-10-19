@@ -6,6 +6,7 @@
 #include "EditorUtilityPanels.h"
 #include "SceneSerializer.h"
 #include "ShaderGraphEditor.h"
+#include "VisualScriptEditor.h"
 
 #include <array>
 #include <cstdint>
@@ -14,6 +15,7 @@
 
 class AssetManager;
 class CameraComponent;
+class ColliderComponent;
 class Component;
 class DebugCamera;
 class GameObject;
@@ -26,8 +28,10 @@ class PrefabManager;
 class PrefabInstanceComponent;
 class PrimitiveRendererComponent;
 class RendererComponent;
+class RigidbodyComponent;
 class Scene;
 class SpriteRendererComponent;
+class VisualScriptComponent;
 
 // Unity風のHierarchyとInspectorを表示する、デバッグ用Editor。
 // ReleaseではDrawが何もしないため、ゲーム本体へEditor依存を持ち込まない。
@@ -206,6 +210,9 @@ private:
     void DrawPrefabInstanceInspector(PrefabInstanceComponent& prefab);
     void DrawLightInspector(LightComponent& light);
     void DrawCameraInspector(CameraComponent& camera);
+    void DrawColliderInspector(ColliderComponent& collider);
+    void DrawRigidbodyInspector(RigidbodyComponent& rigidbody);
+    void DrawVisualScriptInspector(VisualScriptComponent& script);
     void DrawAddComponent(GameObject& gameObject, Scene& scene);
 
     AssetManager* assetManager_ = nullptr;
@@ -229,6 +236,7 @@ private:
     std::array<char, 260> scenePath_{};
     SceneSerializer sceneSerializer_;
     ShaderGraphEditor shaderGraphEditor_;
+    VisualScriptEditor visualScriptEditor_;
     std::string lastMessage_;
     std::string sceneMessage_;
     bool isPlaying_ = false;

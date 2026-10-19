@@ -3,6 +3,7 @@
 
 #include "AssetManager.h"
 #include "CameraComponent.h"
+#include "ColliderComponent.h"
 #include "Component.h"
 #include "GameObject.h"
 #include "Graphics.h"
@@ -15,13 +16,16 @@
 #include "PrefabManager.h"
 #include "PrimitiveRendererComponent.h"
 #include "RendererComponent.h"
+#include "RigidbodyComponent.h"
 #include "Scene.h"
 #include "ShaderManager.h"
 #include "SpriteRendererComponent.h"
 #include "TransformComponent.h"
+#include "VisualScriptComponent.h"
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <utility>
@@ -55,6 +59,15 @@ const char* GetComponentName(const Component& component) {
     }
     if (dynamic_cast<const LightComponent*>(&component) != nullptr) {
         return "ライト###Light";
+    }
+    if (dynamic_cast<const ColliderComponent*>(&component) != nullptr) {
+        return "コライダー###Collider";
+    }
+    if (dynamic_cast<const RigidbodyComponent*>(&component) != nullptr) {
+        return "リジッドボディ###Rigidbody";
+    }
+    if (dynamic_cast<const VisualScriptComponent*>(&component) != nullptr) {
+        return "ビジュアルスクリプト###Visual Script";
     }
     return "コンポーネント###Component";
 }
@@ -376,6 +389,18 @@ void Editor::DrawComponentInspector(Component& component) {
     }
     if (auto* camera = dynamic_cast<CameraComponent*>(&component)) {
         DrawCameraInspector(*camera);
+        return;
+    }
+    if (auto* collider = dynamic_cast<ColliderComponent*>(&component)) {
+        DrawColliderInspector(*collider);
+        return;
+    }
+    if (auto* rigidbody = dynamic_cast<RigidbodyComponent*>(&component)) {
+        DrawRigidbodyInspector(*rigidbody);
+        return;
+    }
+    if (auto* script = dynamic_cast<VisualScriptComponent*>(&component)) {
+        DrawVisualScriptInspector(*script);
     }
 }
 
@@ -390,7 +415,12 @@ void Editor::DrawAddComponent(GameObject& gameObject, Scene& scene) {
         "点光源",
         "カメラ",
         "パーティクルエミッター",
-        "スポットライト"
+        "スポットライト",
+        "Sphereコライダー",
+        "AABBコライダー",
+        "OBBコライダー",
+        "リジッドボディ",
+        "ビジュアルスクリプト"
     };
     ImGui::Combo(
         "コンポーネント種類###ComponentType", &addComponentType_, componentTypes,
@@ -509,6 +539,47 @@ void Editor::DrawAddComponent(GameObject& gameObject, Scene& scene) {
             graphics_->GetLightingManager(),
             LightComponent::LightType::Spot);
         break;
+    case 9:
+    case 10:
+    case 11:
+        if (gameObject.GetComponent<ColliderComponent>() != nullptr) {
+            lastMessage_ = "コライダーは1つのGameObjectに1つまでです。";
+            return;
+        }
+        gameObject.AddComponent<ColliderComponent>(
+            graphics_->GetPrimitiveDrawer(),
+            defaultTextureHandle_,
+            static_cast<ColliderComponent::ColliderType>(addComponentType_ - 9));
+        break;
+    case 12:
+        if (gameObject.GetComponent<RigidbodyComponent>() != nullptr) {
+            lastMessage_ = "Rigidbodyは1つのGameObjectに1つまでです。";
+            return;
+        }
+        gameObject.AddComponent<RigidbodyComponent>();
+        break;
+    case 13: {
+        if (gameObject.GetComponent<VisualScriptComponent>() != nullptr) {
+            lastMessage_ = "Visual Scriptは1つのGameObjectに1つまでです。";
+            return;
+        }
+        const std::string pathBase =
+            "Resources/VisualScripts/VisualScript_" +
+            std::to_string(gameObject.GetId());
+        std::string scriptPath = pathBase + ".vscript";
+        int suffix = 1;
+        while (std::filesystem::exists(scriptPath)) {
+            scriptPath = pathBase + "_" + std::to_string(suffix++) +
+                ".vscript";
+        }
+        auto* script = gameObject.AddComponent<VisualScriptComponent>(
+            inputManager_, scriptPath);
+        if (!script->SaveGraph()) {
+            lastMessage_ = script->GetLastError();
+            return;
+        }
+        break;
+    }
     default:
         return;
     }

@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "nodes": [
+    { "id": 1, "type": "EventUpdate", "name": "毎フレーム", "x": 40, "y": 80, "floatValue": 0, "vectorValue": [0, 0, 0], "key": 87, "boolValue": true },
+    { "id": 2, "type": "KeyPressed", "name": "キーを押している", "x": 40, "y": 330, "floatValue": 0, "vectorValue": [0, 0, 0], "key": 87, "boolValue": true },
+    { "id": 3, "type": "Branch", "name": "もし～なら", "x": 340, "y": 110, "floatValue": 0, "vectorValue": [0, 0, 0], "key": 87, "boolValue": true },
+    { "id": 4, "type": "Translate", "name": "移動する", "x": 650, "y": 110, "floatValue": 0, "vectorValue": [0, 0, 3], "key": 87, "boolValue": true }
+  ],
+  "links": [
+  ]
+}

@@ -1,9 +1,25 @@
 #include "Scene.h"
 
+#include "ColliderComponent.h"
 #include "RendererComponent.h"
+#include "RigidbodyComponent.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
+
+namespace {
+
+bool OverlapsOnYZ(
+    const ColliderComponent::WorldAabb& left,
+    const ColliderComponent::WorldAabb& right) {
+    return left.minimum.y <= right.maximum.y &&
+        left.maximum.y >= right.minimum.y &&
+        left.minimum.z <= right.maximum.z &&
+        left.maximum.z >= right.minimum.z;
+}
+
+} // namespace
 
 Scene::Scene(std::string name)
     : name_(std::move(name)) {
@@ -134,7 +150,293 @@ void Scene::Update(float deltaTime) {
         gameObjects_[index]->UpdateComponents(deltaTime);
     }
 
+    ProcessCollisions();
     RemoveDestroyedGameObjects();
+}
+
+void Scene::DispatchCollision(
+    ColliderComponent& source,
+    ColliderComponent& other,
+    CollisionEvent event) {
+    GameObject* owner = source.GetOwner();
+    if (owner == nullptr || owner->IsPendingDestroy()) {
+        return;
+    }
+    const size_t componentCount = owner->GetComponents().size();
+    for (size_t index = 0; index < componentCount; ++index) {
+        Component* component = owner->GetComponents()[index].get();
+        if (component == nullptr || !component->IsEnabled()) {
+            continue;
+        }
+        switch (event) {
+        case CollisionEvent::Enter:
+            component->OnCollisionEnter(other);
+            break;
+        case CollisionEvent::Stay:
+            component->OnCollisionStay(other);
+            break;
+        case CollisionEvent::Exit:
+            component->OnCollisionExit(other);
+            break;
+        }
+    }
+}
+
+void Scene::ProcessCollisions() {
+    struct BroadPhaseProxy {
+        ColliderComponent* collider = nullptr;
+        ColliderComponent::WorldAabb bounds{};
+    };
+    struct CollisionRecord {
+        ColliderComponent* left = nullptr;
+        ColliderComponent* right = nullptr;
+    };
+
+    std::vector<BroadPhaseProxy> proxies;
+    for (const std::unique_ptr<GameObject>& gameObject : gameObjects_) {
+        if (gameObject->IsPendingDestroy() ||
+            !gameObject->IsActiveInHierarchy()) {
+            continue;
+        }
+        ColliderComponent* collider =
+            gameObject->GetComponent<ColliderComponent>();
+        if (collider != nullptr && collider->IsEnabled()) {
+            collider->SetColliding(false);
+            proxies.push_back({ collider, collider->GetWorldAabb() });
+        }
+    }
+
+    // Sweep and Prune: X軸の最小値で並べ、X範囲が離れた組を候補から除外する。
+    std::sort(
+        proxies.begin(),
+        proxies.end(),
+        [](const BroadPhaseProxy& left, const BroadPhaseProxy& right) {
+            return left.bounds.minimum.x < right.bounds.minimum.x;
+        });
+
+    lastColliderCount_ = proxies.size();
+    lastBroadPhaseCandidateCount_ = 0;
+    lastNarrowPhaseTestCount_ = 0;
+
+    std::set<std::pair<GameObject::Id, GameObject::Id>> currentPairs;
+    std::vector<CollisionRecord> collisions;
+    std::vector<const BroadPhaseProxy*> active;
+    for (BroadPhaseProxy& proxy : proxies) {
+        std::erase_if(
+            active,
+            [&proxy](const BroadPhaseProxy* candidate) {
+                return candidate->bounds.maximum.x <
+                    proxy.bounds.minimum.x;
+            });
+
+        for (const BroadPhaseProxy* candidate : active) {
+            if (!OverlapsOnYZ(candidate->bounds, proxy.bounds)) {
+                continue;
+            }
+            ++lastBroadPhaseCandidateCount_;
+            ColliderComponent& left = *candidate->collider;
+            ColliderComponent& right = *proxy.collider;
+            ColliderComponent::Contact contact{};
+            ++lastNarrowPhaseTestCount_;
+            if (!ColliderComponent::ComputeContact(left, right, contact)) {
+                continue;
+            }
+
+            GameObject::Id leftId = left.GetOwner()->GetId();
+            GameObject::Id rightId = right.GetOwner()->GetId();
+            if (leftId > rightId) {
+                std::swap(leftId, rightId);
+            }
+            const std::pair<GameObject::Id, GameObject::Id> pair = {
+                leftId, rightId
+            };
+            currentPairs.insert(pair);
+            left.SetColliding(true);
+            right.SetColliding(true);
+            collisions.push_back({ &left, &right });
+        }
+        active.push_back(&proxy);
+    }
+
+    // 積み重なりでも安定しやすいよう、接触を数回反復して解決する。
+    constexpr size_t kSolverIterations = 4;
+    for (size_t iteration = 0; iteration < kSolverIterations; ++iteration) {
+        for (const CollisionRecord& collision : collisions) {
+            ColliderComponent::Contact contact{};
+            if (collision.left->IsTrigger() || collision.right->IsTrigger() ||
+                !ColliderComponent::ComputeContact(
+                    *collision.left, *collision.right, contact)) {
+                continue;
+            }
+            ResolveCollision(
+                *collision.left,
+                *collision.right,
+                contact.normal,
+                contact.penetration);
+        }
+    }
+
+    for (const CollisionRecord& collision : collisions) {
+        ColliderComponent& left = *collision.left;
+        ColliderComponent& right = *collision.right;
+        GameObject::Id leftId = left.GetOwner()->GetId();
+        GameObject::Id rightId = right.GetOwner()->GetId();
+        if (leftId > rightId) {
+            std::swap(leftId, rightId);
+        }
+        const std::pair<GameObject::Id, GameObject::Id> pair = {
+            leftId, rightId
+        };
+        if (!left.GetOwner()->IsPendingDestroy() &&
+            !right.GetOwner()->IsPendingDestroy()) {
+            const CollisionEvent event = collisionPairs_.contains(pair)
+                ? CollisionEvent::Stay
+                : CollisionEvent::Enter;
+            DispatchCollision(left, right, event);
+            DispatchCollision(right, left, event);
+        }
+    }
+
+    for (const auto& previousPair : collisionPairs_) {
+        if (currentPairs.contains(previousPair)) {
+            continue;
+        }
+        GameObject* leftObject = FindGameObject(previousPair.first);
+        GameObject* rightObject = FindGameObject(previousPair.second);
+        ColliderComponent* left = leftObject != nullptr
+            ? leftObject->GetComponent<ColliderComponent>()
+            : nullptr;
+        ColliderComponent* right = rightObject != nullptr
+            ? rightObject->GetComponent<ColliderComponent>()
+            : nullptr;
+        if (left != nullptr && right != nullptr) {
+            DispatchCollision(*left, *right, CollisionEvent::Exit);
+            DispatchCollision(*right, *left, CollisionEvent::Exit);
+        }
+    }
+    collisionPairs_ = std::move(currentPairs);
+}
+
+void Scene::ResolveCollision(
+    ColliderComponent& left,
+    ColliderComponent& right,
+    const Vector3& normal,
+    float penetration) {
+    RigidbodyComponent* leftBody =
+        left.GetOwner()->GetComponent<RigidbodyComponent>();
+    RigidbodyComponent* rightBody =
+        right.GetOwner()->GetComponent<RigidbodyComponent>();
+    const bool leftBodyEnabled =
+        leftBody != nullptr && leftBody->IsEnabled();
+    const bool rightBodyEnabled =
+        rightBody != nullptr && rightBody->IsEnabled();
+    const float leftInverseMass = leftBodyEnabled
+        ? leftBody->GetInverseMass()
+        : 0.0f;
+    const float rightInverseMass = rightBodyEnabled
+        ? rightBody->GetInverseMass()
+        : 0.0f;
+    const float inverseMassSum = leftInverseMass + rightInverseMass;
+    if (inverseMassSum <= 0.0f) {
+        return;
+    }
+
+    constexpr float kGroundNormalThreshold = 0.5f;
+    if (leftBody != nullptr && leftInverseMass > 0.0f &&
+        normal.y < -kGroundNormalThreshold) {
+        leftBody->SetGrounded(true);
+    }
+    if (rightBody != nullptr && rightInverseMass > 0.0f &&
+        normal.y > kGroundNormalThreshold) {
+        rightBody->SetGrounded(true);
+    }
+
+    // 小さな許容値を残して、浮動小数誤差による細かな振動を抑える。
+    constexpr float kPenetrationSlop = 0.0005f;
+    constexpr float kCorrectionPercent = 0.8f;
+    const float correctionMagnitude =
+        (std::max)(penetration - kPenetrationSlop, 0.0f) *
+        kCorrectionPercent / inverseMassSum;
+    const Vector3 correction = normal * correctionMagnitude;
+    if (leftInverseMass > 0.0f) {
+        TransformComponent& transform = left.GetOwner()->GetTransform();
+        transform.SetWorldPosition(
+            transform.GetWorldPosition() - correction * leftInverseMass);
+    }
+    if (rightInverseMass > 0.0f) {
+        TransformComponent& transform = right.GetOwner()->GetTransform();
+        transform.SetWorldPosition(
+            transform.GetWorldPosition() + correction * rightInverseMass);
+    }
+
+    Vector3 leftVelocity = leftBodyEnabled &&
+        leftBody->GetBodyType() != RigidbodyComponent::BodyType::Static
+        ? leftBody->GetVelocity()
+        : Vector3{};
+    Vector3 rightVelocity = rightBodyEnabled &&
+        rightBody->GetBodyType() != RigidbodyComponent::BodyType::Static
+        ? rightBody->GetVelocity()
+        : Vector3{};
+    Vector3 relativeVelocity = rightVelocity - leftVelocity;
+    const float velocityAlongNormal =
+        Vector3::Dot(relativeVelocity, normal);
+    if (velocityAlongNormal >= 0.0f) {
+        return;
+    }
+
+    const float leftRestitution = leftBodyEnabled
+        ? leftBody->GetRestitution()
+        : 0.0f;
+    const float rightRestitution = rightBodyEnabled
+        ? rightBody->GetRestitution()
+        : 0.0f;
+    const float restitution = (std::min)(
+        leftRestitution, rightRestitution);
+    const float normalImpulseMagnitude =
+        -(1.0f + restitution) * velocityAlongNormal / inverseMassSum;
+    const Vector3 normalImpulse =
+        normal * normalImpulseMagnitude;
+    if (leftBody != nullptr && leftInverseMass > 0.0f) {
+        leftVelocity = leftVelocity - normalImpulse * leftInverseMass;
+        leftBody->SetVelocity(leftVelocity);
+    }
+    if (rightBody != nullptr && rightInverseMass > 0.0f) {
+        rightVelocity = rightVelocity + normalImpulse * rightInverseMass;
+        rightBody->SetVelocity(rightVelocity);
+    }
+
+    relativeVelocity = rightVelocity - leftVelocity;
+    Vector3 tangent = relativeVelocity -
+        normal * Vector3::Dot(relativeVelocity, normal);
+    const float tangentLength = tangent.Length();
+    if (tangentLength <= 0.000001f) {
+        return;
+    }
+    tangent = tangent / tangentLength;
+    float tangentImpulseMagnitude =
+        -Vector3::Dot(relativeVelocity, tangent) / inverseMassSum;
+    const float leftFriction = leftBodyEnabled
+        ? leftBody->GetFriction()
+        : 0.5f;
+    const float rightFriction = rightBodyEnabled
+        ? rightBody->GetFriction()
+        : 0.5f;
+    const float friction = std::sqrt(leftFriction * rightFriction);
+    const float maximumFrictionImpulse =
+        normalImpulseMagnitude * friction;
+    tangentImpulseMagnitude = (std::clamp)(
+        tangentImpulseMagnitude,
+        -maximumFrictionImpulse,
+        maximumFrictionImpulse);
+    const Vector3 frictionImpulse = tangent * tangentImpulseMagnitude;
+    if (leftBody != nullptr && leftInverseMass > 0.0f) {
+        leftBody->SetVelocity(
+            leftBody->GetVelocity() - frictionImpulse * leftInverseMass);
+    }
+    if (rightBody != nullptr && rightInverseMass > 0.0f) {
+        rightBody->SetVelocity(
+            rightBody->GetVelocity() + frictionImpulse * rightInverseMass);
+    }
 }
 
 void Scene::SuspendRuntimeCallbacks() {
@@ -230,6 +532,10 @@ void Scene::Clear() {
     nextGameObjectId_ = 1;
     runtimeUpdateEnabled_ = false;
     runtimeCallbacksSuspended_ = false;
+    collisionPairs_.clear();
+    lastColliderCount_ = 0;
+    lastBroadPhaseCandidateCount_ = 0;
+    lastNarrowPhaseTestCount_ = 0;
 }
 
 void Scene::ReplaceWith(Scene&& scene) {
@@ -243,6 +549,10 @@ void Scene::ReplaceWith(Scene&& scene) {
     gameObjects_ = std::move(scene.gameObjects_);
     runtimeUpdateEnabled_ = scene.runtimeUpdateEnabled_;
     runtimeCallbacksSuspended_ = scene.runtimeCallbacksSuspended_;
+    collisionPairs_.clear();
+    lastColliderCount_ = 0;
+    lastBroadPhaseCandidateCount_ = 0;
+    lastNarrowPhaseTestCount_ = 0;
 
     // GameObjectは生成元Sceneへの非所有ポインタを持つため、移動先へ付け替える。
     for (const std::unique_ptr<GameObject>& gameObject : gameObjects_) {
@@ -251,6 +561,7 @@ void Scene::ReplaceWith(Scene&& scene) {
     scene.nextGameObjectId_ = 1;
     scene.runtimeUpdateEnabled_ = false;
     scene.runtimeCallbacksSuspended_ = false;
+    scene.collisionPairs_.clear();
 }
 
 void Scene::RemoveDestroyedGameObjects() {

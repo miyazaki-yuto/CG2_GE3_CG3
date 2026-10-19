@@ -89,6 +89,22 @@ void Editor::DrawParticleEmitterInspector(ParticleEmitterComponent& emitter) {
     if (ImGui::ColorEdit4("終了色###EndColor", &endColor.r)) {
         emitter.SetEndColor(endColor);
     }
+    bool useAttachedLight = emitter.UsesAttachedLight();
+    if (ImGui::Checkbox(
+            "同じGameObjectのライトから生成###UseAttachedLight",
+            &useAttachedLight)) {
+        emitter.SetUseAttachedLight(useAttachedLight);
+    }
+    ImGui::BeginDisabled(!useAttachedLight);
+    bool inheritLightColor = emitter.InheritsLightColor();
+    if (ImGui::Checkbox(
+            "ライト色を引き継ぐ###InheritLightColor",
+            &inheritLightColor)) {
+        emitter.SetInheritLightColor(inheritLightColor);
+    }
+    ImGui::TextWrapped(
+        "Spotは光の方向と外側角、Pointは全方向を生成に使います。");
+    ImGui::EndDisabled();
 
     const std::string texturePath = assetManager_ != nullptr
         ? assetManager_->GetAssetPath(emitter.GetTextureGuid())

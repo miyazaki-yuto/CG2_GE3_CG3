@@ -65,6 +65,7 @@ void Editor::Draw(EditorContext& context) {
         context.bgmVolume,
         context.isPlaying);
     shaderGraphEditor_.Draw();
+    visualScriptEditor_.Draw(scene.FindGameObject(selectedGameObjectId_));
 #else
     (void)context;
 #endif

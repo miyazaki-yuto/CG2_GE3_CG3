@@ -304,6 +304,8 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*
 			RendererComponent::kSkyRenderOrder);
 
 #ifdef _DEBUG
+		DebugSelfTests::RunPhysics();
+		DebugSelfTests::RunVisualScript();
 		DebugSelfTests::RunSkeletalAnimation();
 		DebugSelfTests::RunPrefab(
 			mainScene, *prefabManager, *assetManager);

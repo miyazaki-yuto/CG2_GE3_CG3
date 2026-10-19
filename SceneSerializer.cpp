@@ -2,6 +2,7 @@
 
 #include "AssetManager.h"
 #include "CameraComponent.h"
+#include "ColliderComponent.h"
 #include "Component.h"
 #include "DebugCamera.h"
 #include "GameObject.h"
@@ -16,9 +17,11 @@
 #include "PrimitiveRendererComponent.h"
 #include "PrefabInstanceComponent.h"
 #include "RendererComponent.h"
+#include "RigidbodyComponent.h"
 #include "Scene.h"
 #include "SpriteRendererComponent.h"
 #include "TransformComponent.h"
+#include "VisualScriptComponent.h"
 
 #include <algorithm>
 #include <cctype>
@@ -542,6 +545,9 @@ bool IsSerializableComponent(const Component& component) {
         dynamic_cast<const SpriteRendererComponent*>(&component) != nullptr ||
         dynamic_cast<const PrimitiveRendererComponent*>(&component) != nullptr ||
         dynamic_cast<const ParticleEmitterComponent*>(&component) != nullptr ||
+        dynamic_cast<const ColliderComponent*>(&component) != nullptr ||
+        dynamic_cast<const RigidbodyComponent*>(&component) != nullptr ||
+        dynamic_cast<const VisualScriptComponent*>(&component) != nullptr ||
         dynamic_cast<const PrefabInstanceComponent*>(&component) != nullptr ||
         dynamic_cast<const LightComponent*>(&component) != nullptr ||
         dynamic_cast<const CameraComponent*>(&component) != nullptr;
@@ -585,6 +591,10 @@ void WriteComponent(
         WriteIndent(output, indent + 2);
         output << "\"lighting\": "
             << (modelRenderer->IsLightingEnabled() ? "true" : "false") << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"frustumCulling\": "
+            << (modelRenderer->IsFrustumCullingEnabled() ? "true" : "false")
+            << ",\n";
         WriteIndent(output, indent + 2);
         output << "\"modelGuid\": ";
         WriteString(output, modelRenderer->GetModelGuid());
@@ -886,6 +896,14 @@ void WriteComponent(
         output << "\"playOnAwake\": "
             << (particleEmitter->IsPlayOnAwake() ? "true" : "false") << ",\n";
         WriteIndent(output, indent + 2);
+        output << "\"useAttachedLight\": "
+            << (particleEmitter->UsesAttachedLight() ? "true" : "false")
+            << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"inheritLightColor\": "
+            << (particleEmitter->InheritsLightColor() ? "true" : "false")
+            << ",\n";
+        WriteIndent(output, indent + 2);
         output << "\"lifetimeMin\": " << particleEmitter->GetLifetimeMin() << ",\n";
         WriteIndent(output, indent + 2);
         output << "\"lifetimeMax\": " << particleEmitter->GetLifetimeMax() << ",\n";
@@ -915,6 +933,90 @@ void WriteComponent(
         output << "\"endColor\": ";
         WriteColor4(output, particleEmitter->GetEndColor());
         output << '\n';
+    } else if (const auto* visualScript =
+        dynamic_cast<const VisualScriptComponent*>(&component)) {
+        output << "\"type\": \"VisualScript\",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"enabled\": "
+            << (visualScript->IsEnabled() ? "true" : "false") << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"scriptPath\": ";
+        WriteString(output, visualScript->GetScriptPath());
+        output << '\n';
+    } else if (const auto* rigidbody =
+        dynamic_cast<const RigidbodyComponent*>(&component)) {
+        output << "\"type\": \"Rigidbody\",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"enabled\": "
+            << (rigidbody->IsEnabled() ? "true" : "false") << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"bodyType\": ";
+        const char* bodyType = "Dynamic";
+        if (rigidbody->GetBodyType() ==
+            RigidbodyComponent::BodyType::Static) {
+            bodyType = "Static";
+        } else if (rigidbody->GetBodyType() ==
+            RigidbodyComponent::BodyType::Kinematic) {
+            bodyType = "Kinematic";
+        }
+        WriteString(output, bodyType);
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"mass\": " << rigidbody->GetMass() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"velocity\": ";
+        WriteVector3(output, rigidbody->GetVelocity());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"acceleration\": ";
+        WriteVector3(output, rigidbody->GetAcceleration());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"useGravity\": "
+            << (rigidbody->UsesGravity() ? "true" : "false") << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"drag\": " << rigidbody->GetDrag() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"restitution\": "
+            << rigidbody->GetRestitution() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"friction\": " << rigidbody->GetFriction() << '\n';
+    } else if (const auto* collider =
+        dynamic_cast<const ColliderComponent*>(&component)) {
+        output << "\"type\": \"Collider\",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"enabled\": "
+            << (collider->IsEnabled() ? "true" : "false");
+        WriteRendererCommon(output, *collider, indent + 2);
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"colliderType\": ";
+        const char* colliderType = "Sphere";
+        if (collider->GetColliderType() ==
+            ColliderComponent::ColliderType::Aabb) {
+            colliderType = "AABB";
+        } else if (collider->GetColliderType() ==
+            ColliderComponent::ColliderType::Obb) {
+            colliderType = "OBB";
+        }
+        WriteString(output, colliderType);
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"center\": ";
+        WriteVector3(output, collider->GetCenterOffset());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"radius\": " << collider->GetRadius() << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"halfExtents\": ";
+        WriteVector3(output, collider->GetHalfExtents());
+        output << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"trigger\": "
+            << (collider->IsTrigger() ? "true" : "false") << ",\n";
+        WriteIndent(output, indent + 2);
+        output << "\"debugDraw\": "
+            << (collider->IsDebugDrawEnabled() ? "true" : "false") << '\n';
     } else if (const auto* prefab =
         dynamic_cast<const PrefabInstanceComponent*>(&component)) {
         output << "\"type\": \"PrefabInstance\",\n";
@@ -1260,6 +1362,7 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
         if (type == "ModelRenderer") {
             bool lighting = false;
             bool skySphere = false;
+            bool frustumCulling = true;
             std::string modelReference;
             if (!ReadBool(component, "lighting", lighting, error) ||
                 !ReadAssetReference(
@@ -1269,6 +1372,14 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
                 !ReadAssetReference(
                     component, "fallbackTextureGuid",
                     "fallbackTexturePath", assetReference, error)) {
+                return false;
+            }
+            if (component.Find("frustumCulling") != nullptr &&
+                !ReadBool(
+                    component,
+                    "frustumCulling",
+                    frustumCulling,
+                    error)) {
                 return false;
             }
 
@@ -1479,6 +1590,8 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
         int burstCount = 0;
         BlendMode blendMode = BlendMode::Add;
         bool playOnAwake = true;
+        bool useAttachedLight = false;
+        bool inheritLightColor = true;
         float value = 0.0f;
         Vector3 vector{};
         Color4 color{};
@@ -1487,7 +1600,7 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
         const JsonValue* gravity = component.Find("gravity");
         const JsonValue* startColor = component.Find("startColor");
         const JsonValue* endColor = component.Find("endColor");
-        return ReadInt(component, "renderOrder", renderOrder, error) &&
+        const bool valid = ReadInt(component, "renderOrder", renderOrder, error) &&
             ReadRendererBlendMode(component, blendMode, error) &&
             ReadAssetReference(
                 component, "textureGuid", "texturePath",
@@ -1513,6 +1626,89 @@ bool ValidateComponent(const JsonValue& component, std::string& error) {
             ReadColor4Value(*startColor, color, error, "startColor") &&
             endColor != nullptr &&
             ReadColor4Value(*endColor, color, error, "endColor");
+        if (!valid) {
+            return false;
+        }
+        if (component.Find("useAttachedLight") != nullptr &&
+            !ReadBool(
+                component,
+                "useAttachedLight",
+                useAttachedLight,
+                error)) {
+            return false;
+        }
+        return component.Find("inheritLightColor") == nullptr ||
+            ReadBool(
+                component,
+                "inheritLightColor",
+                inheritLightColor,
+                error);
+    }
+
+    if (type == "VisualScript") {
+        std::string scriptPath;
+        return ReadString(component, "scriptPath", scriptPath, error) &&
+            !scriptPath.empty();
+    }
+
+    if (type == "Rigidbody") {
+        std::string bodyType;
+        float mass = 0.0f;
+        float drag = 0.0f;
+        float restitution = 0.0f;
+        float friction = 0.0f;
+        bool useGravity = true;
+        Vector3 velocity{};
+        Vector3 acceleration{};
+        const JsonValue* velocityValue = component.Find("velocity");
+        const JsonValue* accelerationValue = component.Find("acceleration");
+        return ReadString(component, "bodyType", bodyType, error) &&
+            (bodyType == "Static" || bodyType == "Dynamic" ||
+                bodyType == "Kinematic") &&
+            ReadFloat(component, "mass", mass, error) && mass > 0.0f &&
+            velocityValue != nullptr &&
+            ReadVector3Value(
+                *velocityValue, velocity, error, "velocity") &&
+            accelerationValue != nullptr &&
+            ReadVector3Value(
+                *accelerationValue, acceleration, error, "acceleration") &&
+            ReadBool(component, "useGravity", useGravity, error) &&
+            ReadFloat(component, "drag", drag, error) && drag >= 0.0f &&
+            ReadFloat(component, "restitution", restitution, error) &&
+            restitution >= 0.0f && restitution <= 1.0f &&
+            ReadFloat(component, "friction", friction, error) &&
+            friction >= 0.0f && friction <= 1.0f;
+    }
+
+    if (type == "Collider") {
+        int renderOrder = 0;
+        BlendMode blendMode = BlendMode::Normal;
+        std::string colliderType;
+        Vector3 center{};
+        Vector3 halfExtents{};
+        float radius = 0.0f;
+        bool trigger = false;
+        bool debugDraw = true;
+        const JsonValue* centerValue = component.Find("center");
+        const JsonValue* halfExtentsValue = component.Find("halfExtents");
+        return ReadInt(component, "renderOrder", renderOrder, error) &&
+            ReadRendererBlendMode(component, blendMode, error) &&
+            ReadString(component, "colliderType", colliderType, error) &&
+            (colliderType == "Sphere" || colliderType == "AABB" ||
+                colliderType == "OBB") &&
+            centerValue != nullptr &&
+            ReadVector3Value(*centerValue, center, error, "center") &&
+            ReadFloat(component, "radius", radius, error) && radius > 0.0f &&
+            halfExtentsValue != nullptr &&
+            ReadVector3Value(
+                *halfExtentsValue,
+                halfExtents,
+                error,
+                "halfExtents") &&
+            halfExtents.x > 0.0f && halfExtents.y > 0.0f &&
+            halfExtents.z > 0.0f &&
+            ReadBool(component, "trigger", trigger, error) &&
+            ReadBool(component, "debugDraw", debugDraw, error);
     }
 
     if (type == "Light") {
@@ -1854,6 +2050,7 @@ bool AddComponentFromJson(
         Vector4 color{};
         UVTransform uv{};
         bool lighting = true;
+        bool frustumCulling = true;
         bool skySphere = false;
         const JsonValue* colorValue = source.Find("color");
         const JsonValue* uvValue = source.Find("uvTransform");
@@ -1862,6 +2059,13 @@ bool AddComponentFromJson(
         ReadVector4Value(*colorValue, color, error, "color");
         ReadUVTransform(*uvValue, uv, error);
         ReadBool(source, "lighting", lighting, error);
+        if (source.Find("frustumCulling") != nullptr) {
+            ReadBool(
+                source,
+                "frustumCulling",
+                frustumCulling,
+                error);
+        }
         ReadBool(source, "skySphere", skySphere, error);
 
         const AssetGuid modelGuid = ResolveAssetGuid(
@@ -2246,6 +2450,7 @@ bool AddComponentFromJson(
         component->SetColor(color);
         component->SetUVTransform(uv);
         component->SetLightingEnabled(lighting);
+        component->SetFrustumCullingEnabled(frustumCulling);
         component->SetEnabled(enabled);
         return true;
     }
@@ -2339,6 +2544,8 @@ bool AddComponentFromJson(
         int burstCount = 0;
         BlendMode blendMode = BlendMode::Add;
         bool playOnAwake = true;
+        bool useAttachedLight = false;
+        bool inheritLightColor = true;
         float emissionRate = 100.0f;
         float lifetimeMin = 1.0f;
         float lifetimeMax = 2.0f;
@@ -2356,6 +2563,20 @@ bool AddComponentFromJson(
         ReadInt(source, "maxParticles", maxParticles, error);
         ReadInt(source, "burstCount", burstCount, error);
         ReadBool(source, "playOnAwake", playOnAwake, error);
+        if (source.Find("useAttachedLight") != nullptr) {
+            ReadBool(
+                source,
+                "useAttachedLight",
+                useAttachedLight,
+                error);
+        }
+        if (source.Find("inheritLightColor") != nullptr) {
+            ReadBool(
+                source,
+                "inheritLightColor",
+                inheritLightColor,
+                error);
+        }
         ReadFloat(source, "emissionRate", emissionRate, error);
         ReadFloat(source, "lifetimeMin", lifetimeMin, error);
         ReadFloat(source, "lifetimeMax", lifetimeMax, error);
@@ -2395,6 +2616,105 @@ bool AddComponentFromJson(
         component->SetSizeRange(startSize, endSize);
         component->SetStartColor(startColor);
         component->SetEndColor(endColor);
+        component->SetUseAttachedLight(useAttachedLight);
+        component->SetInheritLightColor(inheritLightColor);
+        component->SetEnabled(enabled);
+        return true;
+    }
+
+    if (type == "VisualScript") {
+        std::string scriptPath;
+        ReadString(source, "scriptPath", scriptPath, error);
+        auto* component = owner.AddComponent<VisualScriptComponent>(
+            inputManager, std::move(scriptPath));
+        component->SetEnabled(enabled);
+        if (!component->GetLastError().empty()) {
+            AppendWarning(warnings, component->GetLastError());
+        }
+        return true;
+    }
+
+    if (type == "Rigidbody") {
+        std::string bodyTypeName;
+        float mass = 1.0f;
+        float drag = 0.0f;
+        float restitution = 0.0f;
+        float friction = 0.5f;
+        bool useGravity = true;
+        Vector3 velocity{};
+        Vector3 acceleration{};
+        ReadString(source, "bodyType", bodyTypeName, error);
+        ReadFloat(source, "mass", mass, error);
+        ReadVector3Value(
+            *source.Find("velocity"), velocity, error, "velocity");
+        ReadVector3Value(
+            *source.Find("acceleration"),
+            acceleration,
+            error,
+            "acceleration");
+        ReadBool(source, "useGravity", useGravity, error);
+        ReadFloat(source, "drag", drag, error);
+        ReadFloat(source, "restitution", restitution, error);
+        ReadFloat(source, "friction", friction, error);
+        RigidbodyComponent::BodyType bodyType =
+            RigidbodyComponent::BodyType::Dynamic;
+        if (bodyTypeName == "Static") {
+            bodyType = RigidbodyComponent::BodyType::Static;
+        } else if (bodyTypeName == "Kinematic") {
+            bodyType = RigidbodyComponent::BodyType::Kinematic;
+        }
+        auto* component = owner.AddComponent<RigidbodyComponent>();
+        component->SetBodyType(bodyType);
+        component->SetMass(mass);
+        component->SetVelocity(velocity);
+        component->SetAcceleration(acceleration);
+        component->SetUseGravity(useGravity);
+        component->SetDrag(drag);
+        component->SetRestitution(restitution);
+        component->SetFriction(friction);
+        component->SetEnabled(enabled);
+        return true;
+    }
+
+    if (type == "Collider") {
+        int renderOrder = RendererComponent::kOverlayRenderOrder - 1;
+        BlendMode blendMode = BlendMode::Normal;
+        std::string colliderTypeName;
+        Vector3 center{};
+        Vector3 halfExtents{ 0.5f, 0.5f, 0.5f };
+        float radius = 0.5f;
+        bool trigger = false;
+        bool debugDraw = true;
+        ReadInt(source, "renderOrder", renderOrder, error);
+        ReadRendererBlendMode(source, blendMode, error);
+        ReadString(source, "colliderType", colliderTypeName, error);
+        ReadVector3Value(*source.Find("center"), center, error, "center");
+        ReadFloat(source, "radius", radius, error);
+        ReadVector3Value(
+            *source.Find("halfExtents"),
+            halfExtents,
+            error,
+            "halfExtents");
+        ReadBool(source, "trigger", trigger, error);
+        ReadBool(source, "debugDraw", debugDraw, error);
+        ColliderComponent::ColliderType colliderType =
+            ColliderComponent::ColliderType::Sphere;
+        if (colliderTypeName == "AABB") {
+            colliderType = ColliderComponent::ColliderType::Aabb;
+        } else if (colliderTypeName == "OBB") {
+            colliderType = ColliderComponent::ColliderType::Obb;
+        }
+        auto* component = owner.AddComponent<ColliderComponent>(
+            graphics != nullptr ? graphics->GetPrimitiveDrawer() : nullptr,
+            defaultTextureHandle,
+            colliderType);
+        component->SetRenderOrder(renderOrder);
+        component->SetBlendMode(blendMode);
+        component->SetCenterOffset(center);
+        component->SetRadius(radius);
+        component->SetHalfExtents(halfExtents);
+        component->SetTrigger(trigger);
+        component->SetDebugDrawEnabled(debugDraw);
         component->SetEnabled(enabled);
         return true;
     }

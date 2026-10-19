@@ -23,6 +23,11 @@ void Editor::DrawModelRendererInspector(ModelRendererComponent& modelRenderer) {
     if (ImGui::Checkbox("ライティング###Lighting", &lighting)) {
         modelRenderer.SetLightingEnabled(lighting);
     }
+    bool frustumCulling = modelRenderer.IsFrustumCullingEnabled();
+    if (ImGui::Checkbox(
+            "視錐台カリング###FrustumCulling", &frustumCulling)) {
+        modelRenderer.SetFrustumCullingEnabled(frustumCulling);
+    }
     if (Model* model = modelRenderer.GetModel()) {
         const std::string modelPath = assetManager_ != nullptr
             ? assetManager_->GetAssetPath(modelRenderer.GetModelGuid())

@@ -96,6 +96,12 @@
     <ClCompile Include="EditorCameraInspector.cpp">
       <Filter>ソース ファイル\Engine\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="EditorColliderInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorRigidbodyInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="EditorDockSpace.cpp">
       <Filter>ソース ファイル\Engine\Editor</Filter>
     </ClCompile>
@@ -144,10 +150,22 @@
     <ClCompile Include="EditorViewport.cpp">
       <Filter>ソース ファイル\Engine\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="EditorVisualScriptInspector.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="VisualScriptEditor.cpp">
+      <Filter>ソース ファイル\Engine\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="GameTimer.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
     <ClCompile Include="GameObject.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="ColliderComponent.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="RigidbodyComponent.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
     <ClCompile Include="Scene.cpp">
@@ -157,6 +175,15 @@
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
     <ClCompile Include="TransformComponent.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="VisualScriptComponent.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="VisualScriptGraph.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="VisualScriptRuntime.cpp">
       <Filter>ソース ファイル\Engine\Engine</Filter>
     </ClCompile>
     <ClCompile Include="Graphics.cpp">
@@ -249,6 +276,12 @@
 	  <Filter>ヘッダー ファイル\Engine\Engine</Filter>
 	</ClInclude>
     <ClInclude Include="CameraComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="ColliderComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="RigidbodyComponent.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
     <ClInclude Include="Matrix4x4.h">
@@ -358,6 +391,18 @@
     </ClInclude>
     <ClInclude Include="TransformComponent.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VisualScriptComponent.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VisualScriptGraph.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VisualScriptRuntime.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VisualScriptEditor.h">
+      <Filter>ヘッダー ファイル\Engine\Editor</Filter>
     </ClInclude>
     <ClInclude Include="AudioManager.h">
       <Filter>ヘッダー ファイル</Filter>

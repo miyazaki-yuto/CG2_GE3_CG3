@@ -350,10 +350,18 @@ void ModelRendererComponent::Render() {
         return;
     }
 
+    const Matrix4x4 worldMatrix = owner->GetTransform().GetWorldMatrix();
+    // Static bounds do not include the vertices moved by skinning. Avoid
+    // accidentally culling an animated limb until dynamic bounds are added.
+    if (frustumCullingEnabled_ && !hasAnimationPose_ &&
+        !model_->IsVisible(worldMatrix)) {
+        return;
+    }
+
     // 描画座標はComponent内に重複保持せず、OwnerのTransformを唯一の情報源にする。
     // Materialごとの配列もModelへ渡し、各SubMeshを描く直前に対応Slotの値を選ばせる。
     model_->Draw(
-        owner->GetTransform().GetWorldMatrix(),
+        worldMatrix,
         color_,
         fallbackTextureHandle_,
         uvTransform_,

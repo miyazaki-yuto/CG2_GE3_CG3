@@ -237,6 +237,8 @@ public:
     bool HasBounds() const { return hasBounds_; }
     const Vector3& GetBoundsMin() const { return boundsMin_; }
     const Vector3& GetBoundsMax() const { return boundsMax_; }
+    // 現在の描画カメラの視錐台と、World変換後AABBが交差するか返す。
+    bool IsVisible(const Matrix4x4& worldMatrix) const;
 
     // Assimpが取得した最初のディフューズテクスチャの画像パスを返す。
     // 読み込みとテクスチャハンドルの所有は呼び出し側が明示的に行う。

@@ -1,6 +1,7 @@
 #include "Editor.h"
 
 #include "CameraComponent.h"
+#include "ColliderComponent.h"
 #include "Component.h"
 #include "GameObject.h"
 #include "Graphics.h"
@@ -13,10 +14,12 @@
 #include "PrefabInstanceComponent.h"
 #include "PrimitiveRendererComponent.h"
 #include "RendererComponent.h"
+#include "RigidbodyComponent.h"
 #include "Scene.h"
 #include "ShaderManager.h"
 #include "SpriteRendererComponent.h"
 #include "TransformComponent.h"
+#include "VisualScriptComponent.h"
 
 #include <algorithm>
 #include <cstring>
@@ -594,6 +597,8 @@ void Editor::CopyComponentsForDuplicate(
             duplicate->SetUVTransform(sourceRenderer->GetUVTransform());
             duplicate->SetLightingEnabled(
                 sourceRenderer->IsLightingEnabled());
+            duplicate->SetFrustumCullingEnabled(
+                sourceRenderer->IsFrustumCullingEnabled());
             if (duplicate->PlayAnimation(
                     sourceRenderer->GetCurrentAnimationIndex(), true)) {
                 duplicate->SetAnimationTime(
@@ -771,7 +776,56 @@ void Editor::CopyComponentsForDuplicate(
                 sourceEmitter->GetEndSize());
             duplicate->SetStartColor(sourceEmitter->GetStartColor());
             duplicate->SetEndColor(sourceEmitter->GetEndColor());
+            duplicate->SetUseAttachedLight(
+                sourceEmitter->UsesAttachedLight());
+            duplicate->SetInheritLightColor(
+                sourceEmitter->InheritsLightColor());
             copyCommonState(*sourceEmitter, *duplicate);
+            continue;
+        }
+
+        if (const auto* sourceCollider =
+            dynamic_cast<const ColliderComponent*>(component.get())) {
+            if (graphics_ == nullptr) {
+                skippedComponent = true;
+                continue;
+            }
+            auto* duplicate = destination.AddComponent<ColliderComponent>(
+                graphics_->GetPrimitiveDrawer(),
+                defaultTextureHandle_,
+                sourceCollider->GetColliderType());
+            duplicate->SetCenterOffset(sourceCollider->GetCenterOffset());
+            duplicate->SetRadius(sourceCollider->GetRadius());
+            duplicate->SetHalfExtents(sourceCollider->GetHalfExtents());
+            duplicate->SetTrigger(sourceCollider->IsTrigger());
+            duplicate->SetDebugDrawEnabled(
+                sourceCollider->IsDebugDrawEnabled());
+            copyCommonState(*sourceCollider, *duplicate);
+            continue;
+        }
+
+        if (const auto* sourceBody =
+            dynamic_cast<const RigidbodyComponent*>(component.get())) {
+            auto* duplicate =
+                destination.AddComponent<RigidbodyComponent>();
+            duplicate->SetBodyType(sourceBody->GetBodyType());
+            duplicate->SetMass(sourceBody->GetMass());
+            duplicate->SetVelocity(sourceBody->GetVelocity());
+            duplicate->SetAcceleration(sourceBody->GetAcceleration());
+            duplicate->SetUseGravity(sourceBody->UsesGravity());
+            duplicate->SetDrag(sourceBody->GetDrag());
+            duplicate->SetRestitution(sourceBody->GetRestitution());
+            duplicate->SetFriction(sourceBody->GetFriction());
+            copyCommonState(*sourceBody, *duplicate);
+            continue;
+        }
+
+        if (const auto* sourceScript =
+            dynamic_cast<const VisualScriptComponent*>(component.get())) {
+            auto* duplicate = destination.AddComponent<VisualScriptComponent>(
+                inputManager_, sourceScript->GetScriptPath());
+            duplicate->GetGraph() = sourceScript->GetGraph();
+            copyCommonState(*sourceScript, *duplicate);
             continue;
         }
 

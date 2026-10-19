@@ -103,6 +103,10 @@ public:
 
     bool IsLightingEnabled() const { return enableLighting_; }
     void SetLightingEnabled(bool enabled) { enableLighting_ = enabled; }
+    bool IsFrustumCullingEnabled() const { return frustumCullingEnabled_; }
+    void SetFrustumCullingEnabled(bool enabled) {
+        frustumCullingEnabled_ = enabled;
+    }
 
     bool PlayAnimation(uint32_t animationIndex, bool restart = true);
     bool PlayAnimation(const std::string& animationName, bool restart = true);
@@ -145,6 +149,7 @@ private:
         { 1.0f, 1.0f }, 0.0f, { 0.0f, 0.0f }
     };
     bool enableLighting_ = true;
+    bool frustumCullingEnabled_ = true;
     ModelPose animationPose_;
     uint32_t animationIndex_ = 0;
     float animationTimeSeconds_ = 0.0f;

@@ -1,6 +1,7 @@
 #include "ParticleEmitterComponent.h"
 
 #include "GameObject.h"
+#include "LightComponent.h"
 
 #include <algorithm>
 #include <cmath>
@@ -100,10 +101,34 @@ float ParticleEmitterComponent::RandomRange(float minimum, float maximum) {
 }
 
 Vector3 ParticleEmitterComponent::RandomDirection() {
+    const LightComponent* light = useAttachedLight_ && GetOwner() != nullptr
+        ? GetOwner()->GetComponent<LightComponent>()
+        : nullptr;
+    if (light != nullptr &&
+        light->GetLightType() == LightComponent::LightType::Point) {
+        Vector3 result = {
+            RandomRange(-1.0f, 1.0f),
+            RandomRange(-1.0f, 1.0f),
+            RandomRange(-1.0f, 1.0f)
+        };
+        if (result.Length() <= 0.00001f) {
+            result = { 0.0f, 1.0f, 0.0f };
+        }
+        result.Normalize();
+        return result;
+    }
+
+    const Vector3 baseDirection = light != nullptr
+        ? light->GetDirection()
+        : direction_;
+    const float effectiveSpread = light != nullptr &&
+        light->GetLightType() == LightComponent::LightType::Spot
+        ? std::tan(light->GetOuterAngle())
+        : spread_;
     Vector3 result = {
-        direction_.x + RandomRange(-spread_, spread_),
-        direction_.y + RandomRange(-spread_, spread_),
-        direction_.z + RandomRange(-spread_, spread_)
+        baseDirection.x + RandomRange(-effectiveSpread, effectiveSpread),
+        baseDirection.y + RandomRange(-effectiveSpread, effectiveSpread),
+        baseDirection.z + RandomRange(-effectiveSpread, effectiveSpread)
     };
     if (result.Length() <= 0.00001f) {
         result = { 0.0f, 1.0f, 0.0f };
@@ -121,6 +146,9 @@ void ParticleEmitterComponent::Emit(uint32_t count) {
         static_cast<size_t>(count), available));
     const Vector3 emitterPosition =
         GetOwner()->GetTransform().GetWorldPosition();
+    const LightComponent* attachedLight = useAttachedLight_
+        ? GetOwner()->GetComponent<LightComponent>()
+        : nullptr;
 
     for (uint32_t index = 0; index < count; ++index) {
         Particle particle{};
@@ -132,8 +160,15 @@ void ParticleEmitterComponent::Emit(uint32_t count) {
         particle.lifetime = RandomRange(lifetimeMin_, lifetimeMax_);
         particle.startSize = startSize_;
         particle.endSize = endSize_;
-        particle.startColor = startColor_;
+        particle.startColor = attachedLight != nullptr && inheritLightColor_
+            ? attachedLight->GetColor()
+            : startColor_;
         particle.endColor = endColor_;
+        if (attachedLight != nullptr && inheritLightColor_) {
+            particle.endColor.r *= attachedLight->GetColor().r;
+            particle.endColor.g *= attachedLight->GetColor().g;
+            particle.endColor.b *= attachedLight->GetColor().b;
+        }
         particles_.push_back(particle);
     }
 }

@@ -5,10 +5,10 @@ struct Vector3 {
 	float x, y, z;
 
 	// コンストラクタ
-	Vector3() : x(0), y(0), z(0) {}
+	constexpr Vector3() : x(0), y(0), z(0) {}
 
 	// 値を指定出来るコンストラクタ
-	Vector3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+	constexpr Vector3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
 	//--operatorオーバーロード--//
 

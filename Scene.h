@@ -4,8 +4,13 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
+
+class ColliderComponent;
+class RigidbodyComponent;
 
 // GameObjectの生成・検索・更新・破棄をまとめて管理するゲーム空間。
 class Scene {
@@ -65,8 +70,31 @@ public:
     const std::vector<std::unique_ptr<GameObject>>& GetGameObjects() const {
         return gameObjects_;
     }
+    size_t GetLastColliderCount() const { return lastColliderCount_; }
+    size_t GetLastBroadPhaseCandidateCount() const {
+        return lastBroadPhaseCandidateCount_;
+    }
+    size_t GetLastNarrowPhaseTestCount() const {
+        return lastNarrowPhaseTestCount_;
+    }
 
 private:
+    enum class CollisionEvent {
+        Enter,
+        Stay,
+        Exit
+    };
+
+    void ProcessCollisions();
+    void DispatchCollision(
+        ColliderComponent& source,
+        ColliderComponent& other,
+        CollisionEvent event);
+    void ResolveCollision(
+        ColliderComponent& left,
+        ColliderComponent& right,
+        const Vector3& normal,
+        float penetration);
     void RemoveDestroyedGameObjects();
 
     std::string name_;
@@ -74,4 +102,8 @@ private:
     std::vector<std::unique_ptr<GameObject>> gameObjects_;
     bool runtimeUpdateEnabled_ = false;
     bool runtimeCallbacksSuspended_ = false;
+    std::set<std::pair<GameObject::Id, GameObject::Id>> collisionPairs_;
+    size_t lastColliderCount_ = 0;
+    size_t lastBroadPhaseCandidateCount_ = 0;
+    size_t lastNarrowPhaseTestCount_ = 0;
 };

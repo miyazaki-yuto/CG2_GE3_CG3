@@ -71,6 +71,10 @@ public:
     const Color4& GetEndColor() const { return endColor_; }
     void SetStartColor(const Color4& color) { startColor_ = color; }
     void SetEndColor(const Color4& color) { endColor_ = color; }
+    bool UsesAttachedLight() const { return useAttachedLight_; }
+    void SetUseAttachedLight(bool enabled) { useAttachedLight_ = enabled; }
+    bool InheritsLightColor() const { return inheritLightColor_; }
+    void SetInheritLightColor(bool enabled) { inheritLightColor_ = enabled; }
 
 private:
     struct Particle {
@@ -113,4 +117,6 @@ private:
     float endSize_ = 0.0f;
     Color4 startColor_{ 1.0f, 1.0f, 1.0f, 1.0f };
     Color4 endColor_{ 1.0f, 1.0f, 1.0f, 0.0f };
+    bool useAttachedLight_ = false;
+    bool inheritLightColor_ = true;
 };

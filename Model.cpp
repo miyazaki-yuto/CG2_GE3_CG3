@@ -18,6 +18,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <iterator>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -1420,6 +1421,57 @@ void Model::CreateMeshResources(
     indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
     indexBufferView_.SizeInBytes = static_cast<UINT>(indexBufferSize);
     indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
+}
+
+bool Model::IsVisible(const Matrix4x4& worldMatrix) const {
+    if (!hasBounds_ || debugCamera_ == nullptr || isSkySphere_) {
+        return true;
+    }
+
+    const Matrix4x4 worldViewProjection = Multiply(
+        worldMatrix, debugCamera_->GetViewProjectionMatrix());
+    const Vector3 corners[8] = {
+        { boundsMin_.x, boundsMin_.y, boundsMin_.z },
+        { boundsMax_.x, boundsMin_.y, boundsMin_.z },
+        { boundsMin_.x, boundsMax_.y, boundsMin_.z },
+        { boundsMax_.x, boundsMax_.y, boundsMin_.z },
+        { boundsMin_.x, boundsMin_.y, boundsMax_.z },
+        { boundsMax_.x, boundsMin_.y, boundsMax_.z },
+        { boundsMin_.x, boundsMax_.y, boundsMax_.z },
+        { boundsMax_.x, boundsMax_.y, boundsMax_.z }
+    };
+
+    // DirectXのクリップ空間は -w<=x<=w, -w<=y<=w, 0<=z<=w。
+    // 同じ面の外側に8点全てがある場合だけ、完全に画面外と判定する。
+    bool outside[6] = { true, true, true, true, true, true };
+    for (const Vector3& corner : corners) {
+        const float x = corner.x * worldViewProjection.m[0][0] +
+            corner.y * worldViewProjection.m[1][0] +
+            corner.z * worldViewProjection.m[2][0] +
+            worldViewProjection.m[3][0];
+        const float y = corner.x * worldViewProjection.m[0][1] +
+            corner.y * worldViewProjection.m[1][1] +
+            corner.z * worldViewProjection.m[2][1] +
+            worldViewProjection.m[3][1];
+        const float z = corner.x * worldViewProjection.m[0][2] +
+            corner.y * worldViewProjection.m[1][2] +
+            corner.z * worldViewProjection.m[2][2] +
+            worldViewProjection.m[3][2];
+        const float w = corner.x * worldViewProjection.m[0][3] +
+            corner.y * worldViewProjection.m[1][3] +
+            corner.z * worldViewProjection.m[2][3] +
+            worldViewProjection.m[3][3];
+        outside[0] = outside[0] && x < -w;
+        outside[1] = outside[1] && x > w;
+        outside[2] = outside[2] && y < -w;
+        outside[3] = outside[3] && y > w;
+        outside[4] = outside[4] && z < 0.0f;
+        outside[5] = outside[5] && z > w;
+    }
+    return !std::any_of(
+        std::begin(outside), std::end(outside), [](bool value) {
+            return value;
+        });
 }
 
 void Model::Draw(
