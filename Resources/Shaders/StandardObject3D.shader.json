@@ -1,7 +1,7 @@
 {
   "name": "StandardObject3D",
-  "vertexShader": "../../Object3d.VS.hlsl",
-  "pixelShader": "../../Object3d.PS.hlsl",
+  "vertexShader": "../../Shaders/Object3d.VS.hlsl",
+  "pixelShader": "../../Shaders/Object3d.PS.hlsl",
   "vertexEntry": "main",
   "pixelEntry": "main",
   "vertexProfile": "vs_6_0",

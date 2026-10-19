@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -56,6 +56,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="BuildDirectories">
+    <OutDir>$(ProjectDir)Build\bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)Build\obj\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
@@ -67,7 +71,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -96,7 +100,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -123,7 +127,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -138,44 +142,44 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-	<ClCompile Include="AssetManager.cpp" />
-	<ClCompile Include="PrefabManager.cpp" />
-	<ClCompile Include="PrefabInstanceComponent.cpp" />
-	<ClCompile Include="ParticleDrawer.cpp" />
-	<ClCompile Include="ParticleEmitterComponent.cpp" />
-	<ClCompile Include="PlayModeManager.cpp" />
-    <ClCompile Include="CameraComponent.cpp" />
-    <ClCompile Include="ColliderComponent.cpp" />
-    <ClCompile Include="DebugCamera.cpp" />
-    <ClCompile Include="DirectXCommon.cpp" />
-    <ClCompile Include="AudioManager.cpp" />
-    <ClCompile Include="DX12Utility.cpp" />
-    <ClCompile Include="DebugSelfTests.cpp" />
-    <ClCompile Include="Engine.cpp" />
-    <ClCompile Include="Editor.cpp" />
-    <ClCompile Include="EditorGizmo.cpp" />
-    <ClCompile Include="EditorCameraInspector.cpp" />
-    <ClCompile Include="EditorColliderInspector.cpp" />
-    <ClCompile Include="EditorRigidbodyInspector.cpp" />
-    <ClCompile Include="EditorDockSpace.cpp" />
-    <ClCompile Include="EditorHierarchy.cpp" />
-    <ClCompile Include="EditorHistory.cpp" />
-    <ClCompile Include="EditorInspector.cpp" />
-    <ClCompile Include="EditorInspectorUtilities.cpp" />
-    <ClCompile Include="EditorLightInspector.cpp" />
-    <ClCompile Include="EditorModelRendererInspector.cpp" />
-    <ClCompile Include="EditorParticleEmitterInspector.cpp" />
-    <ClCompile Include="EditorPlayModePanel.cpp" />
-    <ClCompile Include="EditorPrefabInstanceInspector.cpp" />
-    <ClCompile Include="EditorPrimitiveRendererInspector.cpp" />
-    <ClCompile Include="EditorRendererInspector.cpp" />
-    <ClCompile Include="EditorSelection.cpp" />
-    <ClCompile Include="EditorSpriteRendererInspector.cpp" />
-    <ClCompile Include="EditorUtilityPanels.cpp" />
-    <ClCompile Include="EditorViewport.cpp" />
-    <ClCompile Include="EditorVisualScriptInspector.cpp" />
-    <ClCompile Include="GameObject.cpp" />
-    <ClCompile Include="GameTimer.cpp" />
+	<ClCompile Include="Source\Scene\AssetManager.cpp" />
+	<ClCompile Include="Source\Scene\PrefabManager.cpp" />
+	<ClCompile Include="Source\Components\PrefabInstanceComponent.cpp" />
+	<ClCompile Include="Source\Graphics\ParticleDrawer.cpp" />
+	<ClCompile Include="Source\Components\ParticleEmitterComponent.cpp" />
+	<ClCompile Include="Source\Core\PlayModeManager.cpp" />
+    <ClCompile Include="Source\Components\CameraComponent.cpp" />
+    <ClCompile Include="Source\Components\ColliderComponent.cpp" />
+    <ClCompile Include="Source\Graphics\DebugCamera.cpp" />
+    <ClCompile Include="Source\Graphics\DirectXCommon.cpp" />
+    <ClCompile Include="Source\Core\AudioManager.cpp" />
+    <ClCompile Include="Source\Graphics\DX12Utility.cpp" />
+    <ClCompile Include="Source\Core\DebugSelfTests.cpp" />
+    <ClCompile Include="Source\Core\Engine.cpp" />
+    <ClCompile Include="Source\Editor\Editor.cpp" />
+    <ClCompile Include="Source\Editor\EditorGizmo.cpp" />
+    <ClCompile Include="Source\Editor\EditorCameraInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorColliderInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorRigidbodyInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorDockSpace.cpp" />
+    <ClCompile Include="Source\Editor\EditorHierarchy.cpp" />
+    <ClCompile Include="Source\Editor\EditorHistory.cpp" />
+    <ClCompile Include="Source\Editor\EditorInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorInspectorUtilities.cpp" />
+    <ClCompile Include="Source\Editor\EditorLightInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorModelRendererInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorParticleEmitterInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorPlayModePanel.cpp" />
+    <ClCompile Include="Source\Editor\EditorPrefabInstanceInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorPrimitiveRendererInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorRendererInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorSelection.cpp" />
+    <ClCompile Include="Source\Editor\EditorSpriteRendererInspector.cpp" />
+    <ClCompile Include="Source\Editor\EditorUtilityPanels.cpp" />
+    <ClCompile Include="Source\Editor\EditorViewport.cpp" />
+    <ClCompile Include="Source\Editor\EditorVisualScriptInspector.cpp" />
+    <ClCompile Include="Source\Scene\GameObject.cpp" />
+    <ClCompile Include="Source\Core\GameTimer.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -197,58 +201,58 @@
     <ClCompile Include="externals\imgui\imgui_widgets.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="Graphics.cpp" />
-    <ClCompile Include="ShaderManager.cpp" />
-    <ClCompile Include="Material.cpp" />
-    <ClCompile Include="ShaderGraphEditor.cpp" />
-    <ClCompile Include="InputManager.cpp" />
-    <ClCompile Include="LightingManager.cpp" />
-    <ClCompile Include="LightComponent.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="Matrix4x4.cpp" />
-    <ClCompile Include="Model.cpp" />
-    <ClCompile Include="ModelRendererComponent.cpp" />
-    <ClCompile Include="PrimitiveDrawer.cpp" />
-    <ClCompile Include="PrimitiveRendererComponent.cpp" />
-    <ClCompile Include="RigidbodyComponent.cpp" />
-    <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="SceneSerializer.cpp" />
-    <ClCompile Include="SampleScene.cpp" />
-    <ClCompile Include="Sprite.cpp" />
-    <ClCompile Include="SpriteRendererComponent.cpp" />
-    <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="TransformComponent.cpp" />
-    <ClCompile Include="VisualScriptComponent.cpp" />
-    <ClCompile Include="VisualScriptEditor.cpp" />
-    <ClCompile Include="VisualScriptGraph.cpp" />
-    <ClCompile Include="VisualScriptRuntime.cpp" />
+    <ClCompile Include="Source\Graphics\Graphics.cpp" />
+    <ClCompile Include="Source\Graphics\ShaderManager.cpp" />
+    <ClCompile Include="Source\Graphics\Material.cpp" />
+    <ClCompile Include="Source\Editor\ShaderGraphEditor.cpp" />
+    <ClCompile Include="Source\Core\InputManager.cpp" />
+    <ClCompile Include="Source\Graphics\LightingManager.cpp" />
+    <ClCompile Include="Source\Components\LightComponent.cpp" />
+    <ClCompile Include="Source\App\main.cpp" />
+    <ClCompile Include="Source\Math\Matrix4x4.cpp" />
+    <ClCompile Include="Source\Graphics\Model.cpp" />
+    <ClCompile Include="Source\Components\ModelRendererComponent.cpp" />
+    <ClCompile Include="Source\Graphics\PrimitiveDrawer.cpp" />
+    <ClCompile Include="Source\Components\PrimitiveRendererComponent.cpp" />
+    <ClCompile Include="Source\Components\RigidbodyComponent.cpp" />
+    <ClCompile Include="Source\Scene\Scene.cpp" />
+    <ClCompile Include="Source\Scene\SceneSerializer.cpp" />
+    <ClCompile Include="Source\App\SampleScene.cpp" />
+    <ClCompile Include="Source\Graphics\Sprite.cpp" />
+    <ClCompile Include="Source\Components\SpriteRendererComponent.cpp" />
+    <ClCompile Include="Source\Graphics\TextureManager.cpp" />
+    <ClCompile Include="Source\Components\TransformComponent.cpp" />
+    <ClCompile Include="Source\Scripting\VisualScriptComponent.cpp" />
+    <ClCompile Include="Source\Scripting\VisualScriptEditor.cpp" />
+    <ClCompile Include="Source\Scripting\VisualScriptGraph.cpp" />
+    <ClCompile Include="Source\Scripting\VisualScriptRuntime.cpp" />
   </ItemGroup>
   <ItemGroup>
-	<ClInclude Include="BlendMode.h" />
-	<ClInclude Include="AssetManager.h" />
-	<ClInclude Include="PrefabManager.h" />
-	<ClInclude Include="PrefabInstanceComponent.h" />
-	<ClInclude Include="ParticleDrawer.h" />
-	<ClInclude Include="ParticleEmitterComponent.h" />
-	<ClInclude Include="PlayModeManager.h" />
-    <ClInclude Include="CameraComponent.h" />
-    <ClInclude Include="ColliderComponent.h" />
-    <ClInclude Include="RigidbodyComponent.h" />
-    <ClInclude Include="CommonTypes.h" />
-    <ClInclude Include="Component.h" />
-    <ClInclude Include="AudioManager.h" />
-    <ClInclude Include="DebugCamera.h" />
-    <ClInclude Include="DirectXCommon.h" />
-    <ClInclude Include="DX12Utility.h" />
-    <ClInclude Include="DebugSelfTests.h" />
-    <ClInclude Include="Engine.h" />
-    <ClInclude Include="Editor.h" />
-    <ClInclude Include="EditorContext.h" />
-    <ClInclude Include="EditorHistory.h" />
-    <ClInclude Include="EditorInspectorUtilities.h" />
-    <ClInclude Include="EditorUtilityPanels.h" />
-    <ClInclude Include="GameTimer.h" />
-    <ClInclude Include="GameObject.h" />
+	<ClInclude Include="Source\Graphics\BlendMode.h" />
+	<ClInclude Include="Source\Scene\AssetManager.h" />
+	<ClInclude Include="Source\Scene\PrefabManager.h" />
+	<ClInclude Include="Source\Components\PrefabInstanceComponent.h" />
+	<ClInclude Include="Source\Graphics\ParticleDrawer.h" />
+	<ClInclude Include="Source\Components\ParticleEmitterComponent.h" />
+	<ClInclude Include="Source\Core\PlayModeManager.h" />
+    <ClInclude Include="Source\Components\CameraComponent.h" />
+    <ClInclude Include="Source\Components\ColliderComponent.h" />
+    <ClInclude Include="Source\Components\RigidbodyComponent.h" />
+    <ClInclude Include="Source\Graphics\CommonTypes.h" />
+    <ClInclude Include="Source\Components\Component.h" />
+    <ClInclude Include="Source\Core\AudioManager.h" />
+    <ClInclude Include="Source\Graphics\DebugCamera.h" />
+    <ClInclude Include="Source\Graphics\DirectXCommon.h" />
+    <ClInclude Include="Source\Graphics\DX12Utility.h" />
+    <ClInclude Include="Source\Core\DebugSelfTests.h" />
+    <ClInclude Include="Source\Core\Engine.h" />
+    <ClInclude Include="Source\Editor\Editor.h" />
+    <ClInclude Include="Source\Editor\EditorContext.h" />
+    <ClInclude Include="Source\Editor\EditorHistory.h" />
+    <ClInclude Include="Source\Editor\EditorInspectorUtilities.h" />
+    <ClInclude Include="Source\Editor\EditorUtilityPanels.h" />
+    <ClInclude Include="Source\Core\GameTimer.h" />
+    <ClInclude Include="Source\Scene\GameObject.h" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
     <ClInclude Include="externals\imgui\imgui_impl_dx12.h" />
@@ -257,34 +261,34 @@
     <ClInclude Include="externals\imgui\imstb_rectpack.h" />
     <ClInclude Include="externals\imgui\imstb_textedit.h" />
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
-    <ClInclude Include="Graphics.h" />
-    <ClInclude Include="ShaderManager.h" />
-    <ClInclude Include="Material.h" />
-    <ClInclude Include="ShaderGraphEditor.h" />
-    <ClInclude Include="InputManager.h" />
-    <ClInclude Include="LightingManager.h" />
-    <ClInclude Include="LightComponent.h" />
-    <ClInclude Include="Matrix4x4.h" />
-    <ClInclude Include="Model.h" />
-    <ClInclude Include="ModelRendererComponent.h" />
-    <ClInclude Include="PrimitiveDrawer.h" />
-    <ClInclude Include="PrimitiveRendererComponent.h" />
-    <ClInclude Include="RendererComponent.h" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="SceneSerializer.h" />
-    <ClInclude Include="SampleScene.h" />
-    <ClInclude Include="Sprite.h" />
-    <ClInclude Include="SpriteRendererComponent.h" />
-    <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="TransformComponent.h" />
-    <ClInclude Include="VisualScriptComponent.h" />
-    <ClInclude Include="VisualScriptEditor.h" />
-    <ClInclude Include="VisualScriptGraph.h" />
-    <ClInclude Include="VisualScriptRuntime.h" />
-    <ClInclude Include="Vector3.h" />
+    <ClInclude Include="Source\Graphics\Graphics.h" />
+    <ClInclude Include="Source\Graphics\ShaderManager.h" />
+    <ClInclude Include="Source\Graphics\Material.h" />
+    <ClInclude Include="Source\Editor\ShaderGraphEditor.h" />
+    <ClInclude Include="Source\Core\InputManager.h" />
+    <ClInclude Include="Source\Graphics\LightingManager.h" />
+    <ClInclude Include="Source\Components\LightComponent.h" />
+    <ClInclude Include="Source\Math\Matrix4x4.h" />
+    <ClInclude Include="Source\Graphics\Model.h" />
+    <ClInclude Include="Source\Components\ModelRendererComponent.h" />
+    <ClInclude Include="Source\Graphics\PrimitiveDrawer.h" />
+    <ClInclude Include="Source\Components\PrimitiveRendererComponent.h" />
+    <ClInclude Include="Source\Components\RendererComponent.h" />
+    <ClInclude Include="Source\Scene\Scene.h" />
+    <ClInclude Include="Source\Scene\SceneSerializer.h" />
+    <ClInclude Include="Source\App\SampleScene.h" />
+    <ClInclude Include="Source\Graphics\Sprite.h" />
+    <ClInclude Include="Source\Components\SpriteRendererComponent.h" />
+    <ClInclude Include="Source\Graphics\TextureManager.h" />
+    <ClInclude Include="Source\Components\TransformComponent.h" />
+    <ClInclude Include="Source\Scripting\VisualScriptComponent.h" />
+    <ClInclude Include="Source\Scripting\VisualScriptEditor.h" />
+    <ClInclude Include="Source\Scripting\VisualScriptGraph.h" />
+    <ClInclude Include="Source\Scripting\VisualScriptRuntime.h" />
+    <ClInclude Include="Source\Math\Vector3.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Object3d.PS.hlsl">
+    <FxCompile Include="Shaders\Object3d.PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
@@ -293,7 +297,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
     </FxCompile>
-    <FxCompile Include="Object3d.VS.hlsl">
+    <FxCompile Include="Shaders\Object3d.VS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Vertex</ShaderType>
@@ -323,15 +327,15 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Object3d.hlsli" />
-    <None Include="Particle.PS.hlsl" />
-    <None Include="Particle.VS.hlsl" />
-    <None Include="Outline.PS.hlsl" />
-    <None Include="Outline.VS.hlsl" />
-    <None Include="ShadowMap.VS.hlsl" />
-    <None Include="Skinning.hlsli" />
-    <None Include="ToneMapping.PS.hlsl" />
-    <None Include="ToneMapping.VS.hlsl" />
+    <None Include="Shaders\Object3d.hlsli" />
+    <None Include="Shaders\Particle.PS.hlsl" />
+    <None Include="Shaders\Particle.VS.hlsl" />
+    <None Include="Shaders\Outline.PS.hlsl" />
+    <None Include="Shaders\Outline.VS.hlsl" />
+    <None Include="Shaders\ShadowMap.VS.hlsl" />
+    <None Include="Shaders\Skinning.hlsli" />
+    <None Include="Shaders\ToneMapping.PS.hlsl" />
+    <None Include="Shaders\ToneMapping.VS.hlsl" />
     <None Include="Resources\Shaders\StandardObject3D.shader.json" />
     <None Include="Resources\Shaders\UnlitTint.shader.json" />
     <None Include="Resources\Shaders\UnlitTint.PS.hlsl" />

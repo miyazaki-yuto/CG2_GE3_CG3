@@ -1036,7 +1036,7 @@ bool ShaderGraphEditor::SaveAndCompile() {
         directory / (graphName + ".shadergraph.json");
     std::ofstream hlsl(hlslPath);
     hlsl <<
-        "#include \"../../../Object3d.hlsli\"\n"
+        "#include \"../../../Shaders/Object3d.hlsli\"\n"
         "Texture2D<float4> gTexture : register(t0);\n"
         "SamplerState gSampler : register(s0);\n"
         "cbuffer CustomMaterialParameters : register(b3)\n{\n" <<
@@ -1052,7 +1052,7 @@ bool ShaderGraphEditor::SaveAndCompile() {
     std::ofstream shaderJson(shaderJsonPath);
     shaderJson << std::format(
         "{{\n  \"name\": \"{}\",\n"
-        "  \"vertexShader\": \"../../../Object3d.VS.hlsl\",\n"
+        "  \"vertexShader\": \"../../../Shaders/Object3d.VS.hlsl\",\n"
         "  \"pixelShader\": \"{}.generated.PS.hlsl\",\n"
         "  \"blend\": \"Alpha\",\n"
         "  \"cull\": \"Back\",\n"

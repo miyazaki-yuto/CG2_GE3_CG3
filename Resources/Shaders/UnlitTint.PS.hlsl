@@ -1,4 +1,4 @@
-#include "../../Object3d.hlsli"
+#include "../../Shaders/Object3d.hlsli"
 
 Texture2D<float4> gTexture : register(t0);
 SamplerState gSampler : register(s0);

@@ -1,6 +1,6 @@
 {
   "name": "UnlitTint",
-  "vertexShader": "../../Object3d.VS.hlsl",
+  "vertexShader": "../../Shaders/Object3d.VS.hlsl",
   "pixelShader": "UnlitTint.PS.hlsl",
   "blend": "Alpha",
   "cull": "Back",

@@ -1,6 +1,6 @@
 {
   "name": "NewShaderGraph",
-  "vertexShader": "../../../Object3d.VS.hlsl",
+  "vertexShader": "../../../Shaders/Object3d.VS.hlsl",
   "pixelShader": "NewShaderGraph.generated.PS.hlsl",
   "blend": "Alpha",
   "cull": "Back",

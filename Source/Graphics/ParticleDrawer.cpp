@@ -94,9 +94,9 @@ void ParticleDrawer::CreatePipelineStates(
     ShaderManager& shaderManager,
     std::ostream& logStream) {
     Microsoft::WRL::ComPtr<IDxcBlob> vertexShader = shaderManager.LoadShader(
-        L"Particle.VS.hlsl", L"vs_6_0", logStream);
+        L"Shaders/Particle.VS.hlsl", L"vs_6_0", logStream);
     Microsoft::WRL::ComPtr<IDxcBlob> pixelShader = shaderManager.LoadShader(
-        L"Particle.PS.hlsl", L"ps_6_0", logStream);
+        L"Shaders/Particle.PS.hlsl", L"ps_6_0", logStream);
     if (vertexShader == nullptr || pixelShader == nullptr) {
         throw std::runtime_error("Failed to compile particle shaders.");
     }

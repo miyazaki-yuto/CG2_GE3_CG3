@@ -485,43 +485,43 @@ void Graphics::CreateGraphicsPipelines(std::ofstream& logStream) {
 
     Microsoft::WRL::ComPtr<IDxcBlob> vertexShaderBlob =
         shaderManager_->LoadShader(
-        L"Object3d.VS.hlsl",
+        L"Shaders/Object3d.VS.hlsl",
         L"vs_6_0",
         logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> pixelShaderBlob =
         shaderManager_->LoadShader(
-            L"Object3d.PS.hlsl",
+            L"Shaders/Object3d.PS.hlsl",
             L"ps_6_0",
             logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> outlineVertexShaderBlob =
         shaderManager_->LoadShader(
-            L"Outline.VS.hlsl",
+            L"Shaders/Outline.VS.hlsl",
             L"vs_6_0",
             logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> outlinePixelShaderBlob =
         shaderManager_->LoadShader(
-            L"Outline.PS.hlsl",
+            L"Shaders/Outline.PS.hlsl",
             L"ps_6_0",
             logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> shadowVertexShaderBlob =
         shaderManager_->LoadShader(
-            L"ShadowMap.VS.hlsl",
+            L"Shaders/ShadowMap.VS.hlsl",
             L"vs_6_0",
             logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> toneMappingVertexShaderBlob =
         shaderManager_->LoadShader(
-            L"ToneMapping.VS.hlsl",
+            L"Shaders/ToneMapping.VS.hlsl",
             L"vs_6_0",
             logStream);
 
     Microsoft::WRL::ComPtr<IDxcBlob> toneMappingPixelShaderBlob =
         shaderManager_->LoadShader(
-            L"ToneMapping.PS.hlsl",
+            L"Shaders/ToneMapping.PS.hlsl",
             L"ps_6_0",
             logStream);
 

@@ -1,3 +1,8 @@
+param(
+    [ValidateSet('Visual Studio 17 2022', 'Visual Studio 18 2026')]
+    [string]$Generator
+)
+
 $ErrorActionPreference = 'Stop'
 
 $assimpSource = Join-Path $PSScriptRoot 'externals\assimp'
@@ -24,6 +29,10 @@ if ([System.IO.File]::Exists($cachePath)) {
     if ($generatorEntry) {
         $cachedGenerator = $generatorEntry.Matches[0].Groups[1].Value
     }
+}
+
+if ($Generator -and $cachedGenerator -and $Generator -ne $cachedGenerator) {
+    throw "Assimp was already configured with '$cachedGenerator'. Remove '$assimpBuild' before switching to '$Generator'."
 }
 
 $cmakePath = if ($cachedGenerator -eq 'Visual Studio 18 2026') {
@@ -63,12 +72,14 @@ $commonArguments = @(
 if ($cachedGenerator) {
     & $cmakePath @commonArguments
 } else {
-    $generator = if ($cmakePath -like '*\2022\*') {
+    $selectedGenerator = if ($Generator) {
+        $Generator
+    } elseif ($cmakePath -like '*\2022\*') {
         'Visual Studio 17 2022'
     } else {
         'Visual Studio 18 2026'
     }
-    & $cmakePath @commonArguments -G $generator -A x64 -T v143
+    & $cmakePath @commonArguments -G $selectedGenerator -A x64 -T v143
 }
 
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $assimpProject)) {
