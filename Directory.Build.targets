@@ -3,17 +3,30 @@
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'CG2'">
     <AssimpGeneratedConfig>$(MSBuildThisFileDirectory)externals\assimp\build-v145\include\assimp\config.h</AssimpGeneratedConfig>
     <AssimpGeneratedProject>$(MSBuildThisFileDirectory)externals\assimp\build-v145\code\assimp.vcxproj</AssimpGeneratedProject>
+    <AssimpBuildConfiguration Condition="'$(Configuration)' == 'Debug'">Debug</AssimpBuildConfiguration>
+    <AssimpBuildConfiguration Condition="'$(Configuration)' == 'Development'">RelWithDebInfo</AssimpBuildConfiguration>
+    <AssimpBuildConfiguration Condition="'$(Configuration)' == 'Release'">Release</AssimpBuildConfiguration>
+    <AssimpLibraryName Condition="'$(Configuration)' == 'Debug'">assimp-vc145-mtd.lib</AssimpLibraryName>
+    <AssimpLibraryName Condition="'$(Configuration)' != 'Debug'">assimp-vc145-mt.lib</AssimpLibraryName>
+    <AssimpZlibLibraryName Condition="'$(Configuration)' == 'Debug'">zlibstaticd.lib</AssimpZlibLibraryName>
+    <AssimpZlibLibraryName Condition="'$(Configuration)' != 'Debug'">zlibstatic.lib</AssimpZlibLibraryName>
+    <AssimpLibrary>$(MSBuildThisFileDirectory)externals\assimp\build-v145\lib\$(AssimpBuildConfiguration)\$(AssimpLibraryName)</AssimpLibrary>
+    <AssimpZlibLibrary>$(MSBuildThisFileDirectory)externals\assimp\build-v145\contrib\zlib\$(AssimpBuildConfiguration)\$(AssimpZlibLibraryName)</AssimpZlibLibrary>
   </PropertyGroup>
 
-  <Target Name="EnsureAssimpIsConfigured"
+  <Target Name="EnsureAssimpIsReady"
           BeforeTargets="_SplitProjectReferencesByFileExistence;PrepareForBuild"
-          Condition="'$(MSBuildProjectName)' == 'CG2' and (!Exists('$(AssimpGeneratedConfig)') or !Exists('$(AssimpGeneratedProject)'))">
-    <Message Text="Assimp has not been configured. Running SetupAssimp.ps1..." Importance="High" />
-    <Exec Command="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)SetupAssimp.ps1&quot; -Generator &quot;Visual Studio 18 2026&quot;"
+          Condition="'$(MSBuildProjectName)' == 'CG2' and '$(AssimpBuildConfiguration)' != '' and (!Exists('$(AssimpGeneratedConfig)') or !Exists('$(AssimpGeneratedProject)') or !Exists('$(AssimpLibrary)') or !Exists('$(AssimpZlibLibrary)'))">
+    <Message Text="Assimp or zlib is not ready for $(AssimpBuildConfiguration). Running SetupAssimp.ps1..." Importance="High" />
+    <Exec Command="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)SetupAssimp.ps1&quot; -Generator &quot;Visual Studio 18 2026&quot; -BuildConfiguration &quot;$(AssimpBuildConfiguration)&quot;"
           WorkingDirectory="$(MSBuildThisFileDirectory)" />
     <Error Condition="!Exists('$(AssimpGeneratedConfig)')"
            Text="Assimp setup did not generate assimp/config.h. Check the SetupAssimp.ps1 output above." />
     <Error Condition="!Exists('$(AssimpGeneratedProject)')"
            Text="Assimp setup did not generate assimp.vcxproj. Check the SetupAssimp.ps1 output above." />
+    <Error Condition="!Exists('$(AssimpLibrary)')"
+           Text="Assimp setup did not generate $(AssimpLibrary). Check the SetupAssimp.ps1 output above." />
+    <Error Condition="!Exists('$(AssimpZlibLibrary)')"
+           Text="Assimp setup did not generate $(AssimpZlibLibrary). Check the SetupAssimp.ps1 output above." />
   </Target>
 </Project>

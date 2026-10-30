@@ -1,6 +1,9 @@
 param(
     [ValidateSet('Visual Studio 18 2026')]
-    [string]$Generator = 'Visual Studio 18 2026'
+    [string]$Generator = 'Visual Studio 18 2026',
+
+    [ValidateSet('Debug', 'RelWithDebInfo', 'Release')]
+    [string]$BuildConfiguration
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,3 +82,34 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $assimpProject)) {
 }
 
 Write-Host "Assimp OBJ/glTF importer project is ready: $assimpProject"
+
+if ($BuildConfiguration) {
+    Write-Host "Building Assimp and zlib for $BuildConfiguration..."
+    & $cmakePath --build $assimpBuild --config $BuildConfiguration --target assimp --parallel
+    if ($LASTEXITCODE -ne 0) {
+        throw "Assimp $BuildConfiguration build failed."
+    }
+
+    $assimpLibraryName = if ($BuildConfiguration -eq 'Debug') {
+        'assimp-vc145-mtd.lib'
+    } else {
+        'assimp-vc145-mt.lib'
+    }
+    $zlibLibraryName = if ($BuildConfiguration -eq 'Debug') {
+        'zlibstaticd.lib'
+    } else {
+        'zlibstatic.lib'
+    }
+    $assimpLibrary = Join-Path $assimpBuild "lib\$BuildConfiguration\$assimpLibraryName"
+    $zlibLibrary = Join-Path $assimpBuild "contrib\zlib\$BuildConfiguration\$zlibLibraryName"
+
+    if (-not (Test-Path -LiteralPath $assimpLibrary)) {
+        throw "Assimp library was not generated: $assimpLibrary"
+    }
+    if (-not (Test-Path -LiteralPath $zlibLibrary)) {
+        throw "zlib library was not generated: $zlibLibrary"
+    }
+
+    Write-Host "Assimp library is ready: $assimpLibrary"
+    Write-Host "zlib library is ready: $zlibLibrary"
+}
