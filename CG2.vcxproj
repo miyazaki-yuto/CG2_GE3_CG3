@@ -25,19 +25,19 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -67,11 +67,12 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;USE_IMGUI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <AdditionalOptions>/utf-8</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v145\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -98,9 +99,9 @@
       <AdditionalOptions>/utf-8</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v145\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -123,11 +124,12 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <AdditionalOptions>/utf-8</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v143\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Source\App;$(ProjectDir)Source\Core;$(ProjectDir)Source\Components;$(ProjectDir)Source\Graphics;$(ProjectDir)Source\Scene;$(ProjectDir)Source\Editor;$(ProjectDir)Source\Scripting;$(ProjectDir)Source\Math;$(ProjectDir)externals\assimp\include;$(ProjectDir)externals\assimp\build-v145\include;$(ProjectDir)externals\DirectXTex\DirectXTex;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -142,12 +144,12 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-	<ClCompile Include="Source\Scene\AssetManager.cpp" />
-	<ClCompile Include="Source\Scene\PrefabManager.cpp" />
-	<ClCompile Include="Source\Components\PrefabInstanceComponent.cpp" />
-	<ClCompile Include="Source\Graphics\ParticleDrawer.cpp" />
-	<ClCompile Include="Source\Components\ParticleEmitterComponent.cpp" />
-	<ClCompile Include="Source\Core\PlayModeManager.cpp" />
+    <ClCompile Include="Source\Scene\AssetManager.cpp" />
+    <ClCompile Include="Source\Scene\PrefabManager.cpp" />
+    <ClCompile Include="Source\Components\PrefabInstanceComponent.cpp" />
+    <ClCompile Include="Source\Graphics\ParticleDrawer.cpp" />
+    <ClCompile Include="Source\Components\ParticleEmitterComponent.cpp" />
+    <ClCompile Include="Source\Core\PlayModeManager.cpp" />
     <ClCompile Include="Source\Components\CameraComponent.cpp" />
     <ClCompile Include="Source\Components\ColliderComponent.cpp" />
     <ClCompile Include="Source\Graphics\DebugCamera.cpp" />
@@ -228,13 +230,13 @@
     <ClCompile Include="Source\Scripting\VisualScriptRuntime.cpp" />
   </ItemGroup>
   <ItemGroup>
-	<ClInclude Include="Source\Graphics\BlendMode.h" />
-	<ClInclude Include="Source\Scene\AssetManager.h" />
-	<ClInclude Include="Source\Scene\PrefabManager.h" />
-	<ClInclude Include="Source\Components\PrefabInstanceComponent.h" />
-	<ClInclude Include="Source\Graphics\ParticleDrawer.h" />
-	<ClInclude Include="Source\Components\ParticleEmitterComponent.h" />
-	<ClInclude Include="Source\Core\PlayModeManager.h" />
+    <ClInclude Include="Source\Graphics\BlendMode.h" />
+    <ClInclude Include="Source\Scene\AssetManager.h" />
+    <ClInclude Include="Source\Scene\PrefabManager.h" />
+    <ClInclude Include="Source\Components\PrefabInstanceComponent.h" />
+    <ClInclude Include="Source\Graphics\ParticleDrawer.h" />
+    <ClInclude Include="Source\Components\ParticleEmitterComponent.h" />
+    <ClInclude Include="Source\Core\PlayModeManager.h" />
     <ClInclude Include="Source\Components\CameraComponent.h" />
     <ClInclude Include="Source\Components\ColliderComponent.h" />
     <ClInclude Include="Source\Components\RigidbodyComponent.h" />
@@ -317,7 +319,7 @@
     <None Include="Resources\bgm.wav" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="externals\assimp\build-v143\code\assimp.vcxproj">
+    <ProjectReference Include="externals\assimp\build-v145\code\assimp.vcxproj">
       <Project>{c4066124-7d65-338c-9b27-cc4d0910fac3}</Project>
       <AdditionalProperties Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Configuration=RelWithDebInfo;Platform=x64</AdditionalProperties>
     </ProjectReference>

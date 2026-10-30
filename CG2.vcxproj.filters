@@ -1,18 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-	<ClCompile Include="Source\Scene\AssetManager.cpp">
-	  <Filter>ソース ファイル\Engine</Filter>
-	</ClCompile>
-	<ClCompile Include="Source\Scene\PrefabManager.cpp">
-	  <Filter>ソース ファイル\Engine</Filter>
-	</ClCompile>
-	<ClCompile Include="Source\Components\PrefabInstanceComponent.cpp">
-	  <Filter>ソース ファイル\Engine</Filter>
-	</ClCompile>
-	<ClCompile Include="Source\Core\PlayModeManager.cpp">
-	  <Filter>ソース ファイル\Engine\Engine</Filter>
-	</ClCompile>
+    <ClCompile Include="Source\Scene\AssetManager.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Scene\PrefabManager.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Components\PrefabInstanceComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\PlayModeManager.cpp">
+      <Filter>ソース ファイル\Engine\Engine</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Components\CameraComponent.cpp">
       <Filter>ソース ファイル\Engine</Filter>
     </ClCompile>
@@ -254,27 +254,27 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-	<ClCompile Include="Source\Graphics\ParticleDrawer.cpp">
-	  <Filter>ソース ファイル\Engine\Graphics</Filter>
-	</ClCompile>
-	<ClCompile Include="Source\Components\ParticleEmitterComponent.cpp">
-	  <Filter>ソース ファイル\Engine</Filter>
-	</ClCompile>
-	<ClInclude Include="Source\Graphics\BlendMode.h">
-	  <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
-	</ClInclude>
-	<ClInclude Include="Source\Scene\AssetManager.h">
-	  <Filter>ヘッダー ファイル\Engine</Filter>
-	</ClInclude>
-	<ClInclude Include="Source\Scene\PrefabManager.h">
-	  <Filter>ヘッダー ファイル\Engine</Filter>
-	</ClInclude>
-	<ClInclude Include="Source\Components\PrefabInstanceComponent.h">
-	  <Filter>ヘッダー ファイル\Engine</Filter>
-	</ClInclude>
-	<ClInclude Include="Source\Core\PlayModeManager.h">
-	  <Filter>ヘッダー ファイル\Engine\Engine</Filter>
-	</ClInclude>
+    <ClCompile Include="Source\Graphics\ParticleDrawer.cpp">
+      <Filter>ソース ファイル\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Components\ParticleEmitterComponent.cpp">
+      <Filter>ソース ファイル\Engine</Filter>
+    </ClCompile>
+    <ClInclude Include="Source\Graphics\BlendMode.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Scene\AssetManager.h">
+      <Filter>ヘッダー ファイル\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Scene\PrefabManager.h">
+      <Filter>ヘッダー ファイル\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Components\PrefabInstanceComponent.h">
+      <Filter>ヘッダー ファイル\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Core\PlayModeManager.h">
+      <Filter>ヘッダー ファイル\Engine\Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Components\CameraComponent.h">
       <Filter>ヘッダー ファイル\Engine\Engine</Filter>
     </ClInclude>
@@ -430,12 +430,12 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-	<ClInclude Include="Source\Graphics\ParticleDrawer.h">
-	  <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
-	</ClInclude>
-	<ClInclude Include="Source\Components\ParticleEmitterComponent.h">
-	  <Filter>ヘッダー ファイル\Engine</Filter>
-	</ClInclude>
+    <ClInclude Include="Source\Graphics\ParticleDrawer.h">
+      <Filter>ヘッダー ファイル\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Components\ParticleEmitterComponent.h">
+      <Filter>ヘッダー ファイル\Engine</Filter>
+    </ClInclude>
     <FxCompile Include="Shaders\Object3d.PS.hlsl">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </FxCompile>
@@ -445,15 +445,16 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="externals\imgui\LICENSE.txt" />
+    <Text Include="externals\assimp\LICENSE" />
   </ItemGroup>
   <ItemGroup>
     <None Include="IMPLEMENTED_FEATURES.md" />
-	<None Include="Shaders\Particle.PS.hlsl">
-	  <Filter>ソース ファイル\Engine\Shader</Filter>
-	</None>
-	<None Include="Shaders\Particle.VS.hlsl">
-	  <Filter>ソース ファイル\Engine\Shader</Filter>
-	</None>
+    <None Include="Shaders\Particle.PS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
+    <None Include="Shaders\Particle.VS.hlsl">
+      <Filter>ソース ファイル\Engine\Shader</Filter>
+    </None>
     <None Include="Shaders\Outline.PS.hlsl">
       <Filter>ソース ファイル\Engine\Shader</Filter>
     </None>
